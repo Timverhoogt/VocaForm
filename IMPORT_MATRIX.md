@@ -10,6 +10,8 @@ This scaffold normalizes every imported form into the same draft schema:
 
 Every imported schema is a draft. Review section grouping, field wording, required flags, and profile-field mapping before using it for a real interview.
 
+The browser app uses the same importer as the CLI. Upload `.docx`, `.pdf`, `.txt`, `.text`, or `.md` from the sidebar; VocaForm stores the source, generated schema, and session state under `work\forms\<import-id>\`, then activates that form immediately.
+
 ## DOCX
 
 Command:
@@ -24,6 +26,8 @@ Method: reads `word/document.xml` from the DOCX package, extracts paragraph text
 
 Best use: Word forms and Google Docs exported as DOCX.
 
+Export behavior: renders back into the uploaded DOCX with in-place anchors, with append fallback for unmatched fields.
+
 ## Plain Text
 
 Command:
@@ -37,6 +41,8 @@ Status: implemented.
 Method: splits text into paragraphs/lines, then applies the shared section/question inference.
 
 Best use: manually exported Google Docs, OCR output, email forms, copied web forms.
+
+Export behavior: exports a generated answers DOCX.
 
 ## PDF
 
@@ -59,6 +65,8 @@ Limitations:
 - Encoded/compressed PDFs may need `pdftotext` or manual export.
 - Always review output carefully.
 
+Export behavior: exports a generated answers DOCX because the PDF is not an editable DOCX template.
+
 ## Google Docs
 
 Command:
@@ -75,4 +83,3 @@ Limitations:
 
 - Private docs need manual export, public/export access, or an authenticated connector.
 - For best rendering back to DOCX, export the Google Doc as DOCX and use `import-docx`.
-

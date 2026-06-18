@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "check": "node src/check.mjs",
-    "check-anchors": "node src/check_docx_anchors.mjs --template \"C:\\Users\\S340\\Downloads\\Kopie van Entreeformulier leeg.docx\" --schema data/mees_entreeformulier.schema.json",
+    "check-anchors": "node src/check_docx_anchors.mjs",
     "check-session": "node src/check_session.mjs",
     "demo": "node src/demo.mjs",
     "import-docx": "node src/import_docx_schema.mjs",

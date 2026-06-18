@@ -49,11 +49,99 @@ export function uniqueSlug(base, seen) {
   return candidate;
 }
 
+const fieldKeywordPattern = new RegExp([
+  "naam",
+  "name",
+  "voornaam",
+  "achternaam",
+  "geboorte",
+  "birth",
+  "datum",
+  "date",
+  "adres",
+  "address",
+  "postcode",
+  "plaats",
+  "city",
+  "telefoon",
+  "phone",
+  "email",
+  "e-mail",
+  "contact",
+  "ouder",
+  "parent",
+  "guardian",
+  "kind",
+  "child",
+  "leerling",
+  "student",
+  "patient",
+  "patient",
+  "arts",
+  "doctor",
+  "dentist",
+  "tandarts",
+  "medical",
+  "medisch",
+  "allerg",
+  "medicatie",
+  "medication",
+  "verzekering",
+  "insurance",
+  "nood",
+  "emergency",
+  "activiteit",
+  "activity",
+  "toestemming",
+  "permission",
+  "handtekening",
+  "signature",
+  "opmerking",
+  "comments",
+  "notes",
+  "bijzonderheden",
+  "school",
+  "groep",
+  "class"
+].join("|"), "i");
+
+function compactText(value) {
+  return String(value).replace(/\s+/g, " ").trim();
+}
+
+function hasFillMarker(text) {
+  return /_{2,}|\.{3,}|-{3,}|☐|□|▢|\[\s*\]/.test(text);
+}
+
+function cleanFieldLabel(text) {
+  const cleaned = compactText(text)
+    .replace(/[☐□▢]/g, "")
+    .replace(/\[\s*\]/g, "")
+    .replace(/_{2,}/g, "")
+    .replace(/\.{3,}/g, "")
+    .replace(/-{3,}/g, "")
+    .replace(/\s*[:：]\s*$/u, "")
+    .trim();
+
+  return cleaned || compactText(text);
+}
+
+function inferFieldType(label) {
+  const normalized = normalizeText(label);
+  if (/\b(email|e-mail)\b/.test(normalized)) return "email";
+  if (/\b(phone|telefoon|mobiel|mobile)\b/.test(normalized)) return "phone";
+  if (/\b(date|datum|geboorte|birth)\b/.test(normalized)) return "date";
+  if (/\b(yes\/no|ja\/nee|toestemming|permission)\b/.test(normalized)) return "boolean";
+  return label.length < 45 ? "short_text" : "long_text";
+}
+
 function isLikelyQuestion(text) {
   const trimmed = text.trim();
   if (!trimmed || trimmed === ".") return false;
   if (trimmed.includes("?")) return true;
   if (trimmed.endsWith(":")) return true;
+  if (hasFillMarker(trimmed)) return true;
+  if (trimmed.length <= 85 && fieldKeywordPattern.test(trimmed)) return true;
   if (trimmed.length > 65 && /[a-z]/i.test(trimmed)) return true;
   return false;
 }
@@ -74,15 +162,15 @@ function isLikelySectionHeading(items, index) {
 }
 
 function makeField(text, sectionId, seen) {
-  const label = text.trim();
+  const label = cleanFieldLabel(text);
   const id = uniqueSlug(`${sectionId}_${slugify(label)}`, seen);
   return {
     id,
     label,
-    render_anchor: label,
-    type: label.length < 45 ? "short_text" : "long_text",
-    required: false,
-    interview_prompt: label,
+    render_anchor: compactText(text),
+    type: inferFieldType(label),
+    required: /\b(required|mandatory|verplicht)\b/i.test(text),
+    interview_prompt: label.includes("?") ? label : `Wat wil je invullen bij ${label}?`,
     examples: []
   };
 }
@@ -114,6 +202,15 @@ export function importSchema({ filename, format, paragraphs, notes = [] }) {
   const seenIds = new Set();
   let currentSection = null;
 
+  if (!headingIndexes.size) {
+    currentSection = {
+      id: uniqueSlug("formulier", seenIds),
+      title: "Formulier",
+      fields: []
+    };
+    sections.push(currentSection);
+  }
+
   for (let index = firstHeadingIndex; index < items.length; index += 1) {
     const item = items[index];
     if (headingIndexes.has(index)) {
@@ -125,6 +222,15 @@ export function importSchema({ filename, format, paragraphs, notes = [] }) {
       };
       sections.push(currentSection);
       continue;
+    }
+
+    if (!currentSection) {
+      currentSection = {
+        id: uniqueSlug("algemeen", seenIds),
+        title: "Algemeen",
+        fields: []
+      };
+      sections.push(currentSection);
     }
 
     if (!currentSection || !isLikelyQuestion(item.text)) continue;
@@ -156,4 +262,3 @@ export function summarizeImport(schema) {
     fields: schema.sections.reduce((total, section) => total + section.fields.length, 0)
   };
 }
-

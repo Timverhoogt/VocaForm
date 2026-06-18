@@ -1,4 +1,7 @@
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { readZip } from "./docx_package.mjs";
 import { findAnchorMatches } from "./docx_text.mjs";
 import { getAllInterviewFields, loadJson } from "./form_state.mjs";
@@ -15,8 +18,29 @@ function requireArg(name) {
   return value;
 }
 
-const templatePath = requireArg("--template");
-const schemaPath = requireArg("--schema");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const activeFormConfigPath = path.join(root, "work", "active_form.json");
+
+async function loadActiveFormFallback() {
+  if (!existsSync(activeFormConfigPath)) return null;
+  return loadJson(activeFormConfigPath);
+}
+
+const activeForm = await loadActiveFormFallback();
+const templatePath = getArg("--template")
+  || process.env.FORM_TEMPLATE_PATH
+  || activeForm?.template_path;
+const schemaPath = getArg("--schema")
+  || process.env.FORM_SCHEMA_PATH
+  || activeForm?.schema_path
+  || path.join(root, "data", "mees_entreeformulier.schema.json");
+
+if (!templatePath || path.extname(templatePath).toLowerCase() !== ".docx" || !existsSync(templatePath)) {
+  console.log("Anchor check skipped: no active DOCX template is configured.");
+  process.exit(0);
+}
+
+if (!schemaPath) requireArg("--schema");
 
 const [templateBuffer, schema] = await Promise.all([
   readFile(templatePath),
@@ -50,4 +74,3 @@ if (unmatched.length) {
   }
   process.exit(1);
 }
-

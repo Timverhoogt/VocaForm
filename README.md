@@ -1,10 +1,10 @@
 # VocaForm Scaffold
 
-Small provider-neutral core for a reusable voice-assisted form filler.
+Small provider-neutral core for a reusable voice-assisted form filler. The app can import a DOCX, PDF, or text form, convert it into the shared VocaForm schema, interview for the detected fields, and export either back into the uploaded DOCX or into a generated answers DOCX.
 
-This scaffold does not implement live audio. It models the reusable core that should sit behind any voice front end:
+The browser UI includes optional OpenAI Realtime WebRTC voice mode for a live, low-latency interview. The reusable core still stays provider-neutral:
 
-- form schema
+- imported form schema
 - family profile prefill
 - interview state
 - next-question selection
@@ -19,21 +19,23 @@ OpenRouter is useful for the LLM reasoning layer:
 - draft final Dutch prose
 - compare or swap models
 
-OpenRouter also documents request-style STT/TTS and audio-capable chat paths, which can be useful for bounded utterances or generated prompts. Keep live speech in a separate adapter, though. OpenRouter is the right abstraction for model routing, structured outputs, and optional request-style audio, not for browser microphone capture, realtime turn-taking, barge-in, and playback control.
+OpenRouter also documents request-style STT/TTS and audio-capable chat paths, which can be useful for bounded utterances or generated prompts. VocaForm keeps live speech in a separate adapter. OpenRouter is the right abstraction for model routing, structured outputs, and optional request-style audio, not for browser microphone capture, realtime turn-taking, barge-in, and playback control.
 
-For the lowest-latency voice experience, use a voice adapter that can be backed by OpenAI Realtime, Gemini Live, browser speech APIs, or another realtime stack while this core keeps form state and rendering provider-neutral.
+For the lowest-latency voice experience, the included adapter uses OpenAI Realtime when `OPENAI_API_KEY` is set and falls back to browser speech hooks when it is not.
 
 ## Files
 
-- `data/mees_entreeformulier.schema.json` - schema derived from the attached school intake form.
+- `data/mees_entreeformulier.schema.json` - bundled example schema derived from a school intake form.
 - `data/family_profile.example.json` - placeholder profile shape; put real values in a private local copy.
 - `src/form_state.mjs` - prefill and interview-state helpers.
 - `src/check_session.mjs` - reviews an interview session for final-export readiness.
 - `src/openrouter.mjs` - OpenRouter structured-output call.
 - `src/prompts.mjs` - prompt and JSON schema for answer normalization.
+- `src/form_importers.mjs` - shared DOCX, PDF, and text import functions used by CLI and browser upload.
 - `src/demo.mjs` - local demo; optional live OpenRouter normalization.
 - `src/make_demo_state.mjs` - generates a complete `[DEMO]` answer state for renderer testing.
 - `src/render_docx.mjs` - renders collected answers to a DOCX in append or in-place mode.
+- `src/docx_report.mjs` - creates a generated answers DOCX when the imported source is PDF/text or has no DOCX template.
 - `src/docx_package.mjs` - tiny dependency-free ZIP utility used by the DOCX renderer.
 - `src/docx_text.mjs` - paragraph text and anchor-matching helpers for DOCX files.
 - `src/check_docx_anchors.mjs` - verifies that schema `render_anchor` values match the DOCX.
@@ -75,21 +77,63 @@ The live test only sends the selected field, the sample answer, and a short prom
 
 ## Run The Local Interview UI
 
-Optional for the attached Mees form:
+Start the app:
 
 ```powershell
-npm run seed-mees-profile
-```
-
-```powershell
-npm run serve
+npm.cmd run serve
 ```
 
 Open `http://127.0.0.1:5177`.
 
-The browser UI keeps its session in `work\session_state.json`. It reads `work\family_profile.local.json` when present, otherwise it falls back to `data\family_profile.example.json`. The profile panel writes back to the local profile path and resets the current interview state so profile-derived fields are recalculated. It uses local answer cleanup when `OPENROUTER_API_KEY` is not set, and uses OpenRouter structured output when the key is available.
+Use the `Importeren` control in the sidebar to upload a `.docx`, `.pdf`, `.txt`, `.text`, or `.md` form. Examples that should follow the same path:
 
-The `Draft DOCX` button renders a downloadable `..\mees_entreeformulier_session_draft_inplace.docx`. The `Final DOCX` button is disabled until the review has no blockers, then renders `..\mees_entreeformulier_session_final_inplace.docx`.
+- dentist intake forms
+- doctor or clinic intake forms
+- school intake forms
+- activity, permission, or registration forms
+- copied/OCR text forms
+
+The uploaded source, generated draft schema, and session state are stored under `work\forms\<import-id>\`. The active form pointer is `work\active_form.json`. Generated exports are written to `work\exports\`.
+
+For DOCX imports, VocaForm keeps the uploaded DOCX as the render template and tries in-place answer placement using imported anchors. For PDF/text imports, VocaForm interviews against the imported schema and exports a generated answers DOCX because there is no editable DOCX template to place answers into.
+
+Optional for the bundled Mees example profile:
+
+```powershell
+npm.cmd run seed-mees-profile
+```
+
+By default the server binds to localhost only. To make it reachable from another device on the same home network or through Tailscale, set:
+
+```powershell
+$env:HOST = "0.0.0.0"
+npm.cmd run serve
+```
+
+Then open the machine's LAN or Tailscale address, for example `http://192.168.68.95:5177` or `http://100.x.y.z:5177`. This local app has no login layer, so only expose it on networks you trust.
+
+The browser UI keeps imported sessions in each active form folder under `work\forms\`. The bundled default example still uses `work\session_state.json`. It reads `work\family_profile.local.json` when present, otherwise it falls back to `data\family_profile.example.json`. The profile panel writes back to the local profile path and resets the current interview state so profile-derived fields are recalculated. It uses local answer cleanup when `OPENROUTER_API_KEY` is not set, and uses OpenRouter structured output when the key is available.
+
+Optional OpenAI Realtime voice mode:
+
+```powershell
+$env:OPENAI_API_KEY = "your_openai_api_key_here"
+$env:OPENAI_REALTIME_MODEL = "gpt-realtime-2"
+$env:OPENAI_REALTIME_VOICE = "marin"
+$env:OPENAI_REALTIME_SPEED = "0.95"
+npm.cmd run serve
+```
+
+With `OPENAI_API_KEY` set, the `Live AI` button starts a WebRTC conversation through the local server endpoint at `/api/realtime/call`. The model is prompted to act as a relaxed Dutch interviewer: one question at a time, short rephrasing, examples when useful, and a short summary before the user clicks `Opslaan`.
+
+The UI has two interview modes:
+
+- `Per veld` keeps the original loop: ask or record one field, then save or skip it.
+- `Hele formulier` runs a continuous interview over all open fields. The transcript is collected in the same text box, and `Verwerken` sends the full transcript to `/api/interview/transcript` so OpenRouter can extract answers into the existing session state.
+
+Whole-form extraction requires `OPENROUTER_API_KEY`. OpenAI Realtime can conduct and transcribe the interview when `OPENAI_API_KEY` is set, but OpenRouter still handles the transcript-to-fields reasoning pass. Without OpenAI Realtime, browser speech recognition or pasted text can still provide the transcript.
+
+The `Concept` button renders a downloadable draft DOCX. The `Finale DOCX` button is disabled until the review has no blockers. Output filenames are based on the active form id, for example `work\exports\<form-id>_session_draft_inplace.docx` for DOCX-source forms or `work\exports\<form-id>_session_draft_answers.docx` for PDF/text-source forms.
 
 The review panel distinguishes draft export from final readiness. Missing required answers, skipped required fields, and follow-up-needed answers are blockers. Low confidence answers are warnings.
 
@@ -115,6 +159,8 @@ $env:OPENROUTER_MODEL = "~openai/gpt-latest"
 $env:FORM_TEMPLATE_PATH = "C:\Users\S340\Downloads\Kopie van Entreeformulier leeg.docx"
 npm run serve
 ```
+
+If you set `FORM_SCHEMA_PATH`, `FORM_TEMPLATE_PATH`, or `SESSION_STATE_PATH`, the server runs that fixed configured form and browser imports cannot replace the active form until those variables are removed.
 
 ## Import A DOCX Draft Schema
 
