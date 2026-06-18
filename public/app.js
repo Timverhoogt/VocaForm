@@ -69,6 +69,17 @@ const downloadLink = document.querySelector("#downloadLink");
 const realtimeStatus = document.querySelector("#realtimeStatus");
 
 const storagePrefix = "vocaform.v1";
+const transcriptArtifactReplacements = [
+  [/\bgeefsvoorbeelden\b/giu, "geef wat voorbeelden"],
+  [/\bgeefwatvoorbeelden\b/giu, "geef wat voorbeelden"],
+  [/\bgeefeensvoorbeelden\b/giu, "geef eens voorbeelden"],
+  [/\bgeefvoorbeelden\b/giu, "geef voorbeelden"],
+  [/\bherhaaldevraag\b/giu, "herhaal de vraag"],
+  [/\bherhaaldvraag\b/giu, "herhaal de vraag"],
+  [/\bwatbedoelje\b/giu, "wat bedoel je"],
+  [/\bkunjevoorbeeldengeven\b/giu, "kun je voorbeelden geven"],
+  [/\bnoemvoorbeelden\b/giu, "noem voorbeelden"]
+];
 
 function storageKey(...parts) {
   return [storagePrefix, ...parts.map((part) => encodeURIComponent(String(part)))].join(".");
@@ -97,6 +108,14 @@ function removeLocalKey(key) {
   } catch {
     // Ignore browser storage failures.
   }
+}
+
+function cleanTranscriptText(value) {
+  let text = String(value || "").trim().replace(/\s+/g, " ");
+  for (const [pattern, replacement] of transcriptArtifactReplacements) {
+    text = text.replace(pattern, replacement);
+  }
+  return text;
 }
 
 function formCacheId() {
@@ -286,10 +305,11 @@ function promptRealtimeCurrentField(reason = "start") {
 }
 
 function appendAnswerTranscript(transcript) {
-  const text = String(transcript || "").trim();
+  const text = cleanTranscriptText(transcript);
   if (!text) return;
   const existing = answerText.value.trim();
   answerText.value = existing ? `${existing}\n${text}` : text;
+  writeDraft();
 }
 
 function fieldStatusLabel(answer, hasBlocker, hasWarning) {
@@ -725,11 +745,14 @@ function initRecognition() {
     let finalText = "";
     let interimText = "";
     for (let index = event.resultIndex; index < event.results.length; index += 1) {
-      const transcript = event.results[index][0].transcript;
-      if (event.results[index].isFinal) finalText += transcript;
-      else interimText += transcript;
+      const transcript = cleanTranscriptText(event.results[index][0].transcript);
+      if (event.results[index].isFinal) finalText = [finalText, transcript].filter(Boolean).join(" ");
+      else interimText = [interimText, transcript].filter(Boolean).join(" ");
     }
-    if (finalText) answerText.value = `${answerText.value} ${finalText}`.trim();
+    if (finalText) {
+      answerText.value = `${answerText.value} ${finalText}`.trim();
+      writeDraft();
+    }
     recognitionStatus.textContent = interimText || "luistert";
   };
   instance.onend = () => {
@@ -1001,6 +1024,9 @@ async function saveWholeTranscript() {
     if (result.orchestration.decision.should_clear_transcript) {
       clearDraft("whole");
       answerText.value = "";
+    } else if (result.orchestration.transcript?.cleaned_text) {
+      answerText.value = result.orchestration.transcript.cleaned_text;
+      writeDraft();
     }
     selectedFieldId = result.orchestration.decision.target_field_id || session.next_field?.id || selectedFieldId;
     assistantTranscript = result.orchestration.decision.user_message;

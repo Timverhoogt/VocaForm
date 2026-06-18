@@ -104,6 +104,8 @@ export const transcriptExtractionJsonSchema = {
 export function buildAnswerNormalizerSystemPrompt() {
   return [
     "You normalize interview answers for Dutch intake, application, medical, school, activity, and other forms.",
+    "The transcript may contain speech-to-text spacing or casing artifacts; mentally repair obvious Dutch phrases, for example Geefsvoorbeelden means geef wat voorbeelden.",
+    "Standalone interview-control requests such as geef wat voorbeelden, herhaal de vraag, or wat bedoel je are not form answers.",
     "Preserve the user's meaning and uncertainty.",
     "Do not invent facts.",
     "Write normalized answers in warm, factual Dutch.",
@@ -135,8 +137,10 @@ export function buildAnswerNormalizerUserPrompt({ field, transcript }) {
 export function buildTranscriptExtractorSystemPrompt() {
   return [
     "You extract form answers from a Dutch interview transcript.",
+    "The transcript may contain speech-to-text spacing or casing artifacts; mentally repair obvious Dutch phrases, for example Geefsvoorbeelden means geef wat voorbeelden.",
     "Use only facts stated in the transcript. Do not invent or infer new facts.",
     "The user may answer fields out of order or combine multiple fields in one answer.",
+    "Ignore standalone interview-control requests such as geef wat voorbeelden, herhaal de vraag, or wat bedoel je unless the same turn also contains factual answer content.",
     "Return records only for fields that are actually discussed, explicitly skipped, or discussed too vaguely to be usable.",
     "Leave fields out when the transcript contains no relevant information for them.",
     "For a vague answer, set status to needs_followup and ask exactly one short Dutch follow-up question.",

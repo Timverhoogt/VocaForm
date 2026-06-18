@@ -38,6 +38,7 @@ import {
   transcriptExtractionJsonSchema
 } from "./prompts.mjs";
 import { slugify } from "./schema_importer.mjs";
+import { cleanTranscriptText } from "./transcript_cleanup.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const publicDir = path.join(root, "public");
@@ -293,6 +294,9 @@ function buildRealtimeSessionConfig() {
           language: config.openAiRealtimeLanguage,
           prompt: [
             "Nederlandstalig intakegesprek voor een formulier.",
+            "Schrijf losse Nederlandse woorden en korte opdrachtzinnen letterlijk uit.",
+            "Veelvoorkomende hulpvragen zijn: geef wat voorbeelden, herhaal de vraag, wat bedoel je, ga door, sla over.",
+            "Corrigeer geen hulpvraag naar een samengesteld woord zoals Geefsvoorbeelden.",
             "Context kan gaan over school, huisarts, tandarts, zorg, sport, activiteit, kind, ouder, deelnemer, patient, contactpersoon, toestemming of bijzonderheden."
           ].join(" ")
         },
@@ -600,12 +604,13 @@ function normalizeLocally(field, transcript) {
 
 async function normalizeAnswer(field, transcript, useOpenRouter) {
   const config = getConfig();
-  if (!useOpenRouter || !config.openRouterApiKey) return normalizeLocally(field, transcript);
+  const cleanedTranscript = cleanTranscriptText(transcript);
+  if (!useOpenRouter || !config.openRouterApiKey) return normalizeLocally(field, cleanedTranscript);
 
   const result = await requestStructuredJson({
     config,
     system: buildAnswerNormalizerSystemPrompt(),
-    user: buildAnswerNormalizerUserPrompt({ field, transcript }),
+    user: buildAnswerNormalizerUserPrompt({ field, transcript: cleanedTranscript }),
     jsonSchema: answerRecordJsonSchema
   });
 
@@ -639,6 +644,7 @@ function normalizeExtractedRecord(field, record) {
 
 async function extractTranscriptAnswers(transcript) {
   const config = getConfig();
+  const cleanedTranscript = cleanTranscriptText(transcript);
   const targetFields = listOpenFields(schema, state);
   if (!targetFields.length) {
     return {
@@ -652,7 +658,7 @@ async function extractTranscriptAnswers(transcript) {
   const result = await requestStructuredJson({
     config,
     system: buildTranscriptExtractorSystemPrompt(),
-    user: buildTranscriptExtractorUserPrompt({ fields: targetFields, transcript }),
+    user: buildTranscriptExtractorUserPrompt({ fields: targetFields, transcript: cleanedTranscript }),
     jsonSchema: transcriptExtractionJsonSchema,
     temperature: 0.1
   });
@@ -685,6 +691,8 @@ async function extractTranscriptAnswers(transcript) {
 async function runWholeFormOrchestration({ transcript, requestedAction = "process_transcript", useOpenRouter = true }) {
   const traceId = randomUUID();
   const config = getConfig();
+  const rawTranscript = String(transcript || "").trim();
+  const cleanedTranscript = cleanTranscriptText(rawTranscript);
   const beforeReview = reviewSession(schema, state);
   const beforeSummary = summarizeState(schema, state);
   const traceBase = {
@@ -694,7 +702,9 @@ async function runWholeFormOrchestration({ transcript, requestedAction = "proces
     requested_action: requestedAction,
     model: useOpenRouter ? config.openRouterModel : "local_rules",
     use_openrouter: Boolean(useOpenRouter && config.openRouterApiKey),
-    transcript_chars: String(transcript || "").length,
+    transcript_chars: rawTranscript.length,
+    cleaned_transcript_chars: cleanedTranscript.length,
+    transcript_changed_by_local_cleanup: cleanedTranscript !== rawTranscript,
     before: {
       summary: beforeSummary,
       review: compactReviewForTrace(beforeReview)
@@ -706,7 +716,7 @@ async function runWholeFormOrchestration({ transcript, requestedAction = "proces
       config,
       formSchema: schema,
       state,
-      transcript,
+      transcript: cleanedTranscript,
       requestedAction,
       useOpenRouter,
       requestStructuredJson
@@ -724,7 +734,7 @@ async function runWholeFormOrchestration({ transcript, requestedAction = "proces
     };
 
     if (orchestration.decision.action === "extract_answers") {
-      extraction = await extractTranscriptAnswers(transcript);
+      extraction = await extractTranscriptAnswers(cleanedTranscript);
       await saveState();
       execution.tool = "extractTranscriptAnswers";
       execution.state_saved = true;
@@ -738,6 +748,10 @@ async function runWholeFormOrchestration({ transcript, requestedAction = "proces
       source: orchestration.source,
       model: orchestration.model || traceBase.model,
       decision: orchestration.decision,
+      transcript: {
+        changed_by_local_cleanup: cleanedTranscript !== rawTranscript,
+        cleaned_text: cleanedTranscript !== rawTranscript ? cleanedTranscript : null
+      },
       execution,
       extraction,
       review: afterReview

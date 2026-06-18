@@ -1,4 +1,9 @@
 import { getAllInterviewFields, listOpenFields, reviewSession } from "./form_state.mjs";
+import {
+  buildInterviewControlReply,
+  cleanTranscriptText,
+  isInterviewControlOnly
+} from "./transcript_cleanup.mjs";
 
 export const interviewOrchestratorDecisionJsonSchema = {
   name: "interview_orchestration_decision",
@@ -98,7 +103,10 @@ export function buildInterviewOrchestratorSystemPrompt() {
     "Your job is to choose one next workflow action for a whole-form interview.",
     "You do not write session state, do not export files, and do not invent answers.",
     "The application owns all deterministic tools: transcript extraction, answer recording, review, and export.",
+    "The transcript may contain speech-to-text spacing or casing artifacts; mentally repair obvious Dutch phrases, for example Geefsvoorbeelden means geef wat voorbeelden.",
+    "Treat standalone interview-control requests such as geef wat voorbeelden, herhaal de vraag, or wat bedoel je as requests for help, not as form answers.",
     "Choose extract_answers when the transcript contains any possible field answers or explicit skips.",
+    "Choose ask_followup when the transcript only asks for examples, clarification, or a repeated question.",
     "Choose ask_followup when the transcript is too vague and one field clearly needs clarification before extraction.",
     "Choose ask_next_field when there is no useful transcript yet and the interview should continue.",
     "Choose review_before_export only when all open work appears finished and the deterministic review should be shown.",
@@ -112,6 +120,7 @@ export function buildInterviewOrchestratorUserPrompt({ formSchema, state, transc
   const review = reviewSession(formSchema, state);
   const openFields = listOpenFields(formSchema, state);
   const allFields = getAllInterviewFields(formSchema);
+  const cleanedTranscript = cleanTranscriptText(transcript);
 
   return JSON.stringify(
     {
@@ -125,7 +134,8 @@ export function buildInterviewOrchestratorUserPrompt({ formSchema, state, transc
       },
       review: reviewSummary(review),
       open_fields: openFields.map((field) => fieldSummary(field, state)),
-      transcript: truncateText(transcript)
+      transcript: truncateText(cleanedTranscript),
+      raw_transcript_changed_by_local_cleanup: cleanedTranscript !== String(transcript || "").trim()
     },
     null,
     2
@@ -141,7 +151,20 @@ function clampConfidence(value, fallback = 0.5) {
 export function buildRuleBasedInterviewDecision({ formSchema, state, transcript, requestedAction = "process_transcript" }) {
   const review = reviewSession(formSchema, state);
   const openFields = listOpenFields(formSchema, state);
-  const hasTranscript = Boolean(String(transcript || "").trim());
+  const cleanedTranscript = cleanTranscriptText(transcript);
+  const hasTranscript = Boolean(cleanedTranscript);
+
+  if (hasTranscript && openFields.length && isInterviewControlOnly(cleanedTranscript)) {
+    const targetField = openFields[0];
+    return {
+      action: "ask_followup",
+      target_field_id: targetField.id,
+      user_message: buildInterviewControlReply(cleanedTranscript, targetField),
+      rationale: "Transcript only contains an interview-control request, not a field answer.",
+      confidence: 0.85,
+      should_clear_transcript: true
+    };
+  }
 
   if (hasTranscript && openFields.length) {
     return {
@@ -192,13 +215,23 @@ export function normalizeInterviewOrchestratorDecision(decision, { formSchema, s
   const fallback = buildRuleBasedInterviewDecision({ formSchema, state, transcript, requestedAction });
   const openFieldIds = new Set(listOpenFields(formSchema, state).map((field) => field.id));
   const validActions = new Set(interviewOrchestratorDecisionJsonSchema.schema.properties.action.enum);
-  const action = validActions.has(decision?.action) ? decision.action : fallback.action;
-  const targetFieldId = openFieldIds.has(decision?.target_field_id) ? decision.target_field_id : null;
-  const userMessage = String(decision?.user_message || fallback.user_message).trim() || fallback.user_message;
-  const rationale = String(decision?.rationale || fallback.rationale).trim() || fallback.rationale;
+  const controlOnly = isInterviewControlOnly(transcript);
+  const action = controlOnly
+    ? fallback.action
+    : validActions.has(decision?.action) ? decision.action : fallback.action;
+  const targetFieldId = controlOnly
+    ? fallback.target_field_id
+    : openFieldIds.has(decision?.target_field_id) ? decision.target_field_id : null;
+  const userMessage = String(
+    (controlOnly ? fallback.user_message : decision?.user_message) || fallback.user_message
+  ).trim() || fallback.user_message;
+  const rationale = String(
+    (controlOnly ? fallback.rationale : decision?.rationale) || fallback.rationale
+  ).trim() || fallback.rationale;
   const hasClearDecision = typeof decision?.should_clear_transcript === "boolean";
   const shouldClearTranscript = action === "extract_answers"
     ? true
+    : controlOnly ? true
     : hasClearDecision ? decision.should_clear_transcript : fallback.should_clear_transcript;
 
   return {
@@ -206,7 +239,7 @@ export function normalizeInterviewOrchestratorDecision(decision, { formSchema, s
     target_field_id: targetFieldId,
     user_message: userMessage,
     rationale,
-    confidence: clampConfidence(decision?.confidence, fallback.confidence),
+    confidence: controlOnly ? fallback.confidence : clampConfidence(decision?.confidence, fallback.confidence),
     should_clear_transcript: shouldClearTranscript
   };
 }
