@@ -1,0 +1,23 @@
+# Dependencies and package manager output
+node_modules/
+npm-debug.log*
+
+# Local runtime state and private family data
+work/
+
+# Secrets and machine-local configuration
+.env
+.env.*
+!.env.example
+
+# Generated documents and temporary files
+*.docx
+*.pdf
+*.tmp
+*.log
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

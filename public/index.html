@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>VocaForm</title>
+    <link rel="icon" href="/assets/vocaform-mark.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand-lockup">
+          <img class="brand-mark" src="/assets/vocaform-mark.svg" alt="" width="56" height="56">
+          <div>
+            <p class="brand-name">VocaForm</p>
+            <h1 id="formTitle">Formulier</h1>
+            <p id="statusLine">Laden</p>
+          </div>
+        </div>
+        <div class="mode-switch" role="group" aria-label="Interviewmodus">
+          <button id="fieldModeButton" type="button" class="mode-option active" aria-pressed="true">Per veld</button>
+          <button id="wholeModeButton" type="button" class="mode-option" aria-pressed="false">Hele formulier</button>
+        </div>
+        <div class="toolbar" aria-label="Acties">
+          <button id="speakButton" class="tool-button" title="Voorlezen met browserstem" aria-label="Voorlezen met browserstem">
+            <span class="icon icon-play" aria-hidden="true"></span>
+            <span>Browserstem</span>
+          </button>
+          <button id="saveButton" class="tool-button" title="Antwoord opslaan" aria-label="Antwoord opslaan">
+            <span class="icon icon-save" aria-hidden="true"></span>
+            <span>Opslaan</span>
+          </button>
+          <button id="renderDraftButton" class="tool-button secondary-action" title="Concept DOCX maken" aria-label="Concept DOCX maken">
+            <span class="icon icon-doc" aria-hidden="true"></span>
+            <span>Concept</span>
+          </button>
+          <button id="renderFinalButton" class="tool-button primary-action" title="Finale DOCX maken" aria-label="Finale DOCX maken">
+            <span class="icon icon-check" aria-hidden="true"></span>
+            <span>Finale DOCX</span>
+          </button>
+          <button id="resetButton" class="tool-button ghost-action" title="Opnieuw beginnen" aria-label="Opnieuw beginnen">
+            <span class="icon icon-reset" aria-hidden="true"></span>
+            <span>Reset</span>
+          </button>
+        </div>
+      </header>
+
+      <section class="workband">
+        <aside class="progress-panel">
+          <div class="rail-heading">
+            <p>Interview</p>
+            <span>Voortgang</span>
+          </div>
+          <div class="meter" aria-hidden="true">
+            <div id="meterFill"></div>
+          </div>
+          <dl class="summary-grid">
+            <div>
+              <dt>Open verplicht</dt>
+              <dd id="requiredOpen">0</dd>
+            </div>
+            <div>
+              <dt>Open totaal</dt>
+              <dd id="totalOpen">0</dd>
+            </div>
+            <div>
+              <dt>AI voice</dt>
+              <dd id="modelStatus">uit</dd>
+            </div>
+          </dl>
+          <section class="import-box">
+            <div class="import-head">
+              <strong>Formulier</strong>
+              <span id="sourceStatus">standaard</span>
+            </div>
+            <input id="formImportInput" type="file" accept=".docx,.pdf,.txt,.text,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown" hidden>
+            <button id="formImportButton" class="wide-button" title="DOCX, PDF of tekstformulier importeren" aria-label="DOCX, PDF of tekstformulier importeren">
+              <span class="icon icon-upload" aria-hidden="true"></span>
+              <span>Importeren</span>
+            </button>
+            <p id="importStatus"></p>
+          </section>
+          <section class="profile-box">
+            <div class="profile-head">
+              <strong>Profiel</strong>
+              <span id="profileStatus">niet geladen</span>
+            </div>
+            <textarea id="profileEditor" rows="10" spellcheck="false"></textarea>
+            <button id="profileSaveButton" class="wide-button" title="Profiel opslaan" aria-label="Profiel opslaan">Profiel opslaan</button>
+          </section>
+          <section class="review-box">
+            <div class="review-head">
+              <strong>Review</strong>
+              <span id="reviewStatus">concept</span>
+            </div>
+            <div class="review-counts">
+              <span id="blockerCount">0 blockers</span>
+              <span id="warningCount">0 warnings</span>
+            </div>
+            <ul id="reviewList"></ul>
+          </section>
+          <div class="field-list-title">
+            <span>Velden</span>
+            <span>formulierroute</span>
+          </div>
+          <nav id="fieldList" aria-label="Velden"></nav>
+        </aside>
+
+        <section class="interview-panel">
+          <div class="interview-card">
+            <div class="question-bar">
+              <div class="section-label" id="sectionLabel">Sectie</div>
+              <span id="recognitionStatus">microfoon stil</span>
+            </div>
+            <h2 id="fieldLabel">Vraag</h2>
+            <p id="questionText"></p>
+            <div id="assistantText" class="assistant-note" aria-live="polite"></div>
+            <div class="ai-start-row">
+              <button id="listenButton" class="ai-start-button" title="AI interview starten" aria-label="AI interview starten">
+                <span class="icon icon-record" aria-hidden="true"></span>
+                <span>Start AI Interview</span>
+              </button>
+            </div>
+            <div class="voice-sheet">
+              <div class="signal-strip" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+              <textarea id="answerText" rows="8" spellcheck="true"></textarea>
+            </div>
+            <div class="answer-meta">
+              <span id="realtimeStatus" class="realtime-status off">OpenAI Realtime uit</span>
+              <label class="switch-label">
+                <span class="switch">
+                  <input id="useOpenRouter" type="checkbox" checked>
+                  <span class="switch-track" aria-hidden="true"></span>
+                </span>
+                <span class="switch-copy">
+                  <span id="openRouterLabel">AI normaliseren</span>
+                  <span id="openRouterHint">OpenRouter</span>
+                </span>
+              </label>
+            </div>
+            <div class="answer-actions">
+              <button id="manualSaveButton" class="text-action" title="Tekst zonder model opslaan" aria-label="Tekst zonder model opslaan">Tekst opslaan</button>
+              <button id="skipButton" class="text-action quiet-action" title="Veld overslaan" aria-label="Veld overslaan">Overslaan</button>
+            </div>
+            <div id="savedAnswer"></div>
+            <a id="downloadLink" href="#" hidden>Download DOCX</a>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
