@@ -29,7 +29,9 @@ For the lowest-latency voice experience, the included adapter uses OpenAI Realti
 - `data/family_profile.example.json` - placeholder profile shape; put real values in a private local copy.
 - `src/form_state.mjs` - prefill and interview-state helpers.
 - `src/check_session.mjs` - reviews an interview session for final-export readiness.
+- `src/check_orchestrator.mjs` - smoke-checks the whole-form orchestrator contract without network calls.
 - `src/openrouter.mjs` - OpenRouter structured-output call.
+- `src/orchestrator.mjs` - structured whole-form interview decision layer.
 - `src/prompts.mjs` - prompt and JSON schema for answer normalization.
 - `src/form_importers.mjs` - shared DOCX, PDF, and text import functions used by CLI and browser upload.
 - `src/demo.mjs` - local demo; optional live OpenRouter normalization.
@@ -63,17 +65,19 @@ cd path\to\VocaForm
 node src/check.mjs
 node src/demo.mjs
 npm run check-anchors
+npm run check-orchestrator
 ```
 
 Optional live OpenRouter test:
 
 ```powershell
 $env:OPENROUTER_API_KEY = "your_key_here"
-$env:OPENROUTER_MODEL = "~openai/gpt-latest"
+$env:OPENROUTER_MODEL = "minimax/minimax-m3"
+$env:OPENROUTER_STRUCTURED_MODEL = "minimax/minimax-m3"
 node src/demo.mjs --live "Het kind speelt graag buiten met andere kinderen, maar kijkt bij onbekende volwassenen eerst even af."
 ```
 
-The live test only sends the selected field, the sample answer, and a short prompt. It does not send a full family profile.
+The live test only sends the selected field, the sample answer, and a short prompt. It does not send a full family profile. MiniMax M3 is the default because it supports strict JSON-schema calls, has a 1M context window for longer interviews, and tested well on VocaForm's transcript extraction path. `OPENROUTER_STRUCTURED_MODEL` remains available as a fallback override for strict JSON-schema calls.
 
 ## Run The Local Interview UI
 
@@ -93,9 +97,15 @@ Use the `Importeren` control in the sidebar to upload a `.docx`, `.pdf`, `.txt`,
 - activity, permission, or registration forms
 - copied/OCR text forms
 
-The uploaded source, generated draft schema, and session state are stored under `work\forms\<import-id>\`. The active form pointer is `work\active_form.json`. Generated exports are written to `work\exports\`.
+The uploaded source and generated draft schema are stored under `work\forms\<import-id>\`. VocaForm also keeps a small local store at `work\vocaform_store.json`; this is the authoritative index for active form metadata and saved session state. `work\active_form.json` and each form's `session_state.json` are still written for compatibility with the CLI tools. Generated exports are written to `work\exports\`.
 
 Set `VOCAFORM_WORK_DIR` if you want those runtime files somewhere other than the repository `work\` folder.
+
+Browser storage is only used for UI recovery: selected field, interview mode, OpenRouter toggle, and unsaved text drafts. Saved answers, imported form metadata, profile data, and exports live on the server side under `work\`.
+
+Use the `Forms` button to open the form library. It compares active/in-progress forms by completion percentage, blocker count, and warning count. Open a row to continue filling that form. Final DOCX/PDF export buttons are enabled only when the form has no final-export blockers.
+
+PDF export requires LibreOffice/soffice. Install LibreOffice or set `LIBREOFFICE_PATH`/`SOFFICE_PATH` to `soffice.exe`; otherwise VocaForm keeps PDF export disabled and explains why in the Forms page.
 
 For DOCX imports, VocaForm keeps the uploaded DOCX as the render template and tries in-place answer placement using imported anchors. For PDF/text imports, VocaForm interviews against the imported schema and exports a generated answers DOCX because there is no editable DOCX template to place answers into.
 
@@ -114,7 +124,7 @@ npm.cmd run serve
 
 Then open the machine's LAN or Tailscale address, for example `http://<your-lan-ip>:5177` or `http://100.x.y.z:5177`. This local app has no login layer, so only expose it on networks you trust.
 
-The browser UI keeps imported sessions in each active form folder under `work\forms\`. The bundled default example still uses `work\session_state.json`. It reads `work\family_profile.local.json` when present, otherwise it falls back to `data\family_profile.example.json`. The profile panel writes back to the local profile path and resets the current interview state so profile-derived fields are recalculated. It uses local answer cleanup when `OPENROUTER_API_KEY` is not set, and uses OpenRouter structured output when the key is available.
+The browser UI reads the active session from `work\vocaform_store.json`, with each form's `session_state.json` kept as a readable backup. The bundled default example still writes `work\session_state.json`. It reads `work\family_profile.local.json` when present, otherwise it falls back to `data\family_profile.example.json`. The profile panel writes back to the local profile path and resets the current interview state so profile-derived fields are recalculated. It uses local answer cleanup when `OPENROUTER_API_KEY` is not set, and uses OpenRouter structured output when the key is available.
 
 Optional OpenAI Realtime voice mode:
 
@@ -131,9 +141,9 @@ With `OPENAI_API_KEY` set, the `Live AI` button starts a WebRTC conversation thr
 The UI has two interview modes:
 
 - `Per veld` keeps the original loop: ask or record one field, then save or skip it.
-- `Hele formulier` runs a continuous interview over all open fields. The transcript is collected in the same text box, and `Verwerken` sends the full transcript to `/api/interview/transcript` so OpenRouter can extract answers into the existing session state.
+- `Hele formulier` runs a continuous interview over all open fields. The transcript is collected in the same text box, and `Verwerken` sends the transcript to `/api/interview/orchestrate`; the orchestrator returns a structured next action, and the server only mutates state when that action runs the existing transcript extractor.
 
-Whole-form extraction requires `OPENROUTER_API_KEY`. OpenAI Realtime can conduct and transcribe the interview when `OPENAI_API_KEY` is set, but OpenRouter still handles the transcript-to-fields reasoning pass. Without OpenAI Realtime, browser speech recognition or pasted text can still provide the transcript.
+Whole-form orchestration requires `OPENROUTER_API_KEY`. OpenAI Realtime can conduct and transcribe the interview when `OPENAI_API_KEY` is set, but OpenRouter still handles the orchestrator decision and transcript-to-fields reasoning pass. Without OpenAI Realtime, browser speech recognition or pasted text can still provide the transcript. Local orchestration traces are appended to `work\orchestration_events.jsonl` with decision metadata and tool execution results.
 
 The `Concept` button renders a downloadable draft DOCX. The `Finale DOCX` button is disabled until the review has no blockers. Output filenames are based on the active form id, for example `work\exports\<form-id>_session_draft_inplace.docx` for DOCX-source forms or `work\exports\<form-id>_session_draft_answers.docx` for PDF/text-source forms.
 
@@ -157,7 +167,8 @@ Optional:
 
 ```powershell
 $env:OPENROUTER_API_KEY = "your_key_here"
-$env:OPENROUTER_MODEL = "~openai/gpt-latest"
+$env:OPENROUTER_MODEL = "minimax/minimax-m3"
+$env:OPENROUTER_STRUCTURED_MODEL = "minimax/minimax-m3"
 $env:FORM_TEMPLATE_PATH = "path\to\school-intake.docx"
 npm run serve
 ```

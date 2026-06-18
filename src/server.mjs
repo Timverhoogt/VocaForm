@@ -1,7 +1,8 @@
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import "./load_env.mjs";
@@ -17,6 +18,7 @@ import {
   validateFormSchema
 } from "./form_state.mjs";
 import { buildReportDocx } from "./docx_report.mjs";
+import { createFormStore } from "./form_store.mjs";
 import {
   canUseAsDocxTemplate,
   importSchemaFromFile,
@@ -25,6 +27,7 @@ import {
   supportedImportDescription
 } from "./form_importers.mjs";
 import { requestStructuredJson } from "./openrouter.mjs";
+import { decideInterviewOrchestration } from "./orchestrator.mjs";
 import {
   answerRecordJsonSchema,
   buildAnswerNormalizerSystemPrompt,
@@ -41,7 +44,9 @@ const publicDir = path.join(root, "public");
 const workDir = path.resolve(process.env.VOCAFORM_WORK_DIR || path.join(root, "work"));
 const formsDir = path.join(workDir, "forms");
 const outputsDir = path.join(workDir, "exports");
+const orchestrationTracePath = path.join(workDir, "orchestration_events.jsonl");
 const activeFormConfigPath = path.join(workDir, "active_form.json");
+const formStore = createFormStore({ workDir });
 const defaultSchemaPath = process.env.FORM_SCHEMA_PATH || path.join(root, "data", "example_entreeformulier.schema.json");
 const exampleProfilePath = path.join(root, "data", "family_profile.example.json");
 const localProfilePath = path.join(workDir, "family_profile.local.json");
@@ -51,6 +56,14 @@ const defaultTemplatePath = process.env.FORM_TEMPLATE_PATH || "";
 const host = process.env.HOST || "127.0.0.1";
 const port = Number(process.env.PORT || 5177);
 const openAiRealtimeCallUrl = "https://api.openai.com/v1/realtime/calls";
+const officePathCandidates = [
+  process.env.LIBREOFFICE_PATH,
+  process.env.SOFFICE_PATH,
+  "soffice",
+  "libreoffice",
+  "C:\\Program Files\\LibreOffice\\program\\soffice.exe",
+  "C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe"
+].filter(Boolean);
 
 let activeForm = null;
 let loadedSchemaPath = null;
@@ -58,6 +71,7 @@ let schema = null;
 let profile = null;
 let state = null;
 let loadedProfilePath = null;
+let officeCapability = null;
 
 function sendJson(response, status, body) {
   response.writeHead(status, {
@@ -135,6 +149,13 @@ async function loadActiveFormConfig({ force = false } = {}) {
 
   if (existsSync(activeFormConfigPath)) {
     activeForm = normalizeFormConfig(await loadJson(activeFormConfigPath));
+    await formStore.setActiveFormConfig(activeForm);
+    return activeForm;
+  }
+
+  const storedActiveForm = await formStore.getActiveFormConfig();
+  if (storedActiveForm) {
+    activeForm = normalizeFormConfig(storedActiveForm);
     return activeForm;
   }
 
@@ -147,6 +168,7 @@ async function saveActiveFormConfig(config) {
     throw new Error("FORM_SCHEMA_PATH/FORM_TEMPLATE_PATH/SESSION_STATE_PATH is set, so browser imports cannot replace the active form.");
   }
   activeForm = normalizeFormConfig(config);
+  await formStore.setActiveFormConfig(activeForm);
   await mkdir(path.dirname(activeFormConfigPath), { recursive: true });
   await writeFile(activeFormConfigPath, `${JSON.stringify(activeForm, null, 2)}\n`, "utf8");
 }
@@ -171,6 +193,64 @@ function datedImportId(filename) {
 
 function outputSlug() {
   return slugify(schema?.form_id || schema?.title || "vocaform");
+}
+
+function outputSlugForSchema(formSchema) {
+  return slugify(formSchema?.form_id || formSchema?.title || "vocaform");
+}
+
+function hasDocxTemplate(formConfig) {
+  return Boolean(
+    formConfig?.template_path &&
+    path.extname(formConfig.template_path).toLowerCase() === ".docx" &&
+    existsSync(formConfig.template_path)
+  );
+}
+
+function spawnCapture(command, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      windowsHide: true,
+      ...options
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout?.on("data", (chunk) => { stdout += chunk; });
+    child.stderr?.on("data", (chunk) => { stderr += chunk; });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) resolve({ stdout, stderr });
+      else reject(new Error(stderr || stdout || `${command} exited with code ${code}`));
+    });
+  });
+}
+
+async function getOfficeCapability() {
+  if (officeCapability) return officeCapability;
+
+  for (const candidate of officePathCandidates) {
+    const isFilePath = candidate.includes("\\") || candidate.includes("/");
+    if (isFilePath && !existsSync(candidate)) continue;
+    try {
+      const result = await spawnCapture(candidate, ["--version"]);
+      officeCapability = {
+        available: true,
+        command: candidate,
+        version: (result.stdout || result.stderr || "").trim()
+      };
+      return officeCapability;
+    } catch {
+      // Try the next candidate.
+    }
+  }
+
+  officeCapability = {
+    available: false,
+    command: null,
+    version: null,
+    reason: "LibreOffice/soffice was not found. Install LibreOffice or set LIBREOFFICE_PATH/SOFFICE_PATH to enable PDF export."
+  };
+  return officeCapability;
 }
 
 function clampNumber(value, fallback, min, max) {
@@ -262,13 +342,28 @@ async function ensureSession({ reset = false } = {}) {
     schema = await loadJson(formConfig.schema_path);
     loadedSchemaPath = formConfig.schema_path;
     state = null;
+    if (!usesEnvironmentFormConfig() && (!formConfig.form_id || formConfig.form_id !== schema.form_id || !formConfig.title)) {
+      await saveActiveFormConfig({
+        ...formConfig,
+        form_id: schema.form_id,
+        title: schema.title
+      });
+    }
   }
 
   await loadProfile();
 
+  if (!reset && !state) {
+    const storedState = await formStore.getSession(schema.form_id);
+    if (storedState?.form_id === schema.form_id) state = storedState;
+  }
+
   if (!reset && !state && existsSync(formConfig.state_path)) {
     const loadedState = await loadJson(formConfig.state_path);
-    if (loadedState.form_id === schema.form_id) state = loadedState;
+    if (loadedState.form_id === schema.form_id) {
+      state = loadedState;
+      await formStore.saveSession(schema.form_id, state);
+    }
   }
 
   if (reset || !state) {
@@ -285,8 +380,37 @@ async function ensureSession({ reset = false } = {}) {
 
 async function saveState() {
   const formConfig = await loadActiveFormConfig();
+  await formStore.saveSession(schema.form_id, state);
   await mkdir(path.dirname(formConfig.state_path), { recursive: true });
   await writeFile(formConfig.state_path, `${JSON.stringify(state, null, 2)}\n`, "utf8");
+}
+
+function compactReviewForTrace(review) {
+  return {
+    ready_for_final_export: Boolean(review.ready_for_final_export),
+    counts: review.counts,
+    blockers: review.blockers.map((item) => ({
+      field_id: item.field_id,
+      kind: item.kind,
+      required: Boolean(item.required),
+      status: item.status
+    })),
+    warnings: review.warnings.map((item) => ({
+      field_id: item.field_id,
+      kind: item.kind,
+      status: item.status
+    }))
+  };
+}
+
+async function appendOrchestrationTrace(event) {
+  await mkdir(path.dirname(orchestrationTracePath), { recursive: true });
+  const record = {
+    recorded_at: new Date().toISOString(),
+    ...event
+  };
+  await appendFile(orchestrationTracePath, `${JSON.stringify(record)}\n`, "utf8");
+  return record;
 }
 
 async function saveProfile(nextProfile) {
@@ -294,6 +418,122 @@ async function saveProfile(nextProfile) {
   await writeFile(writableProfilePath, `${JSON.stringify(nextProfile, null, 2)}\n`, "utf8");
   profile = nextProfile;
   loadedProfilePath = writableProfilePath;
+}
+
+async function loadFormContext(formConfig, { allowInitial = false } = {}) {
+  const normalizedConfig = normalizeFormConfig(formConfig);
+  const formSchema = await loadJson(normalizedConfig.schema_path);
+  let formState = await formStore.getSession(formSchema.form_id);
+
+  if ((!formState || formState.form_id !== formSchema.form_id) && existsSync(normalizedConfig.state_path)) {
+    const fileState = await loadJson(normalizedConfig.state_path);
+    if (fileState.form_id === formSchema.form_id) {
+      formState = fileState;
+      await formStore.saveSession(formSchema.form_id, formState);
+    }
+  }
+
+  if ((!formState || formState.form_id !== formSchema.form_id) && allowInitial) {
+    await loadProfile();
+    formState = createInitialState(formSchema, profile || {});
+  }
+
+  return {
+    formConfig: normalizedConfig,
+    schema: formSchema,
+    state: formState
+  };
+}
+
+function buildFormListItem({ formConfig, formSchema, formState, activeFormId, office }) {
+  const summary = formState ? summarizeState(formSchema, formState) : null;
+  const review = formState ? reviewSession(formSchema, formState) : null;
+  const counts = review?.counts || {
+    total_fields: getAllInterviewFields(formSchema).length,
+    answered: 0,
+    skipped: 0,
+    unanswered: getAllInterviewFields(formSchema).length,
+    needs_followup: 0,
+    low_confidence: 0,
+    required_missing: 0,
+    required_skipped: 0
+  };
+  const totalFields = Math.max(1, counts.total_fields || 0);
+  const completedFields = Math.max(0, totalFields - (summary?.total_interview_fields_open ?? counts.unanswered ?? totalFields));
+
+  return {
+    id: formSchema.form_id,
+    title: formSchema.title || formConfig.title || formSchema.form_id,
+    source: formSchema.source || {
+      filename: formConfig.source_filename || path.basename(formConfig.schema_path),
+      format: formConfig.source_format || "schema"
+    },
+    imported_at: formConfig.imported_at || null,
+    updated_at: formConfig.updated_at || formConfig.imported_at || null,
+    is_active: formSchema.form_id === activeFormId,
+    is_default: Boolean(formConfig.is_default),
+    progress: {
+      completed_fields: completedFields,
+      total_fields: counts.total_fields || 0,
+      percent: counts.total_fields ? Math.round((completedFields / counts.total_fields) * 100) : 0,
+      required_open: summary?.required_fields_open ?? counts.required_missing ?? 0,
+      blockers: review?.blockers.length || 0,
+      warnings: review?.warnings.length || 0,
+      ready_for_final_export: Boolean(review?.ready_for_final_export)
+    },
+    exports: {
+      docx: {
+        available: true,
+        label: hasDocxTemplate(formConfig) ? "Original DOCX" : "Answers DOCX"
+      },
+      pdf: {
+        available: Boolean(office.available),
+        label: "PDF",
+        reason: office.available ? null : office.reason
+      }
+    }
+  };
+}
+
+async function listFormLibrary() {
+  const office = await getOfficeCapability();
+  const stored = await formStore.listForms();
+  const forms = [];
+
+  for (const formConfig of stored.forms) {
+    try {
+      const context = await loadFormContext(formConfig, { allowInitial: true });
+      forms.push(buildFormListItem({
+        formConfig: context.formConfig,
+        formSchema: context.schema,
+        formState: context.state,
+        activeFormId: stored.active_form_id,
+        office
+      }));
+    } catch (error) {
+      forms.push({
+        id: formConfig.form_id,
+        title: formConfig.title || formConfig.form_id,
+        source: {
+          filename: formConfig.source_filename || path.basename(formConfig.schema_path || ""),
+          format: formConfig.source_format || "schema"
+        },
+        is_active: formConfig.form_id === stored.active_form_id,
+        progress: null,
+        exports: {
+          docx: { available: false, label: "DOCX", reason: error.message },
+          pdf: { available: false, label: "PDF", reason: error.message }
+        },
+        error: error.message
+      });
+    }
+  }
+
+  return {
+    active_form_id: stored.active_form_id,
+    office,
+    forms
+  };
 }
 
 function getField(fieldId) {
@@ -442,15 +682,96 @@ async function extractTranscriptAnswers(transcript) {
   };
 }
 
+async function runWholeFormOrchestration({ transcript, requestedAction = "process_transcript", useOpenRouter = true }) {
+  const traceId = randomUUID();
+  const config = getConfig();
+  const beforeReview = reviewSession(schema, state);
+  const beforeSummary = summarizeState(schema, state);
+  const traceBase = {
+    trace_id: traceId,
+    type: "whole_form_interview_orchestration",
+    form_id: schema.form_id,
+    requested_action: requestedAction,
+    model: useOpenRouter ? config.openRouterModel : "local_rules",
+    use_openrouter: Boolean(useOpenRouter && config.openRouterApiKey),
+    transcript_chars: String(transcript || "").length,
+    before: {
+      summary: beforeSummary,
+      review: compactReviewForTrace(beforeReview)
+    }
+  };
+
+  try {
+    const orchestration = await decideInterviewOrchestration({
+      config,
+      formSchema: schema,
+      state,
+      transcript,
+      requestedAction,
+      useOpenRouter,
+      requestStructuredJson
+    });
+
+    const execution = {
+      tool: null,
+      state_saved: false,
+      answers_applied: 0,
+      ignored_field_ids: []
+    };
+    let extraction = {
+      answers: [],
+      ignored_field_ids: []
+    };
+
+    if (orchestration.decision.action === "extract_answers") {
+      extraction = await extractTranscriptAnswers(transcript);
+      await saveState();
+      execution.tool = "extractTranscriptAnswers";
+      execution.state_saved = true;
+      execution.answers_applied = extraction.answers.length;
+      execution.ignored_field_ids = extraction.ignored_field_ids;
+    }
+
+    const afterReview = reviewSession(schema, state);
+    const result = {
+      trace_id: traceId,
+      source: orchestration.source,
+      model: orchestration.model || traceBase.model,
+      decision: orchestration.decision,
+      execution,
+      extraction,
+      review: afterReview
+    };
+
+    await appendOrchestrationTrace({
+      ...traceBase,
+      decision: orchestration.decision,
+      source: orchestration.source,
+      model: orchestration.model || traceBase.model,
+      execution,
+      after: {
+        summary: summarizeState(schema, state),
+        review: compactReviewForTrace(afterReview)
+      }
+    });
+
+    return result;
+  } catch (error) {
+    await appendOrchestrationTrace({
+      ...traceBase,
+      error: {
+        message: error.message
+      }
+    });
+    throw error;
+  }
+}
+
 function buildSessionPayload() {
   const config = getConfig();
   const openField = nextField();
   const formConfig = activeForm || defaultFormConfig();
-  const hasDocxTemplate = Boolean(
-    formConfig.template_path &&
-    path.extname(formConfig.template_path).toLowerCase() === ".docx" &&
-    existsSync(formConfig.template_path)
-  );
+  const canRenderOriginalDocx = hasDocxTemplate(formConfig);
   return {
     form: {
       id: schema.form_id,
@@ -462,7 +783,15 @@ function buildSessionPayload() {
       template_path: formConfig.template_path,
       imported_at: formConfig.imported_at || null,
       is_default: Boolean(formConfig.is_default),
-      can_render_original_docx: hasDocxTemplate
+      can_render_original_docx: canRenderOriginalDocx
+    },
+    persistence: {
+      server_store_path: formStore.dbPath,
+      canonical: "server",
+      browser_cache: "ui_and_unsaved_drafts"
+    },
+    orchestration: {
+      trace_path: orchestrationTracePath
     },
     state,
     summary: summarizeState(schema, state),
@@ -490,24 +819,19 @@ function buildSessionPayload() {
       voice: config.openAiRealtimeVoice,
       language: config.openAiRealtimeLanguage
     },
-    template_exists: hasDocxTemplate
+    template_exists: canRenderOriginalDocx
   };
 }
 
-async function renderDocx(mode, exportKind) {
-  const formConfig = await loadActiveFormConfig();
-  const hasDocxTemplate = Boolean(
-    formConfig.template_path &&
-    path.extname(formConfig.template_path).toLowerCase() === ".docx" &&
-    existsSync(formConfig.template_path)
-  );
-  const effectiveMode = hasDocxTemplate ? mode : "generated";
+async function renderDocxForContext(formSchema, formState, formConfig, mode, exportKind) {
+  const canRenderOriginalDocx = hasDocxTemplate(formConfig);
+  const effectiveMode = canRenderOriginalDocx ? mode : "generated";
   const suffix = effectiveMode === "in-place" ? "inplace" : effectiveMode === "append" ? "filled" : "answers";
-  const outPath = path.join(outputsDir, `${outputSlug()}_session_${exportKind}_${suffix}.docx`);
+  const outPath = path.join(outputsDir, `${outputSlugForSchema(formSchema)}_session_${exportKind}_${suffix}.docx`);
   await mkdir(outputsDir, { recursive: true });
 
-  if (!hasDocxTemplate) {
-    await writeFile(outPath, buildReportDocx(schema, state, {
+  if (!canRenderOriginalDocx) {
+    await writeFile(outPath, buildReportDocx(formSchema, formState, {
       title: exportKind === "final" ? "Finale antwoorden" : "Concept antwoorden"
     }));
     return {
@@ -541,6 +865,71 @@ async function renderDocx(mode, exportKind) {
   return {
     outPath,
     mode: effectiveMode
+  };
+}
+
+async function renderDocx(mode, exportKind) {
+  const formConfig = await loadActiveFormConfig();
+  return renderDocxForContext(schema, state, formConfig, mode, exportKind);
+}
+
+async function convertDocxToPdf(docxPath) {
+  const office = await getOfficeCapability();
+  if (!office.available) {
+    throw new Error(office.reason);
+  }
+
+  await mkdir(outputsDir, { recursive: true });
+  await spawnCapture(office.command, [
+    "--headless",
+    "--convert-to",
+    "pdf",
+    "--outdir",
+    outputsDir,
+    docxPath
+  ], { cwd: root });
+
+  const pdfPath = path.join(outputsDir, `${path.basename(docxPath, ".docx")}.pdf`);
+  if (!existsSync(pdfPath)) {
+    throw new Error("LibreOffice finished but did not produce the expected PDF file.");
+  }
+  return pdfPath;
+}
+
+async function renderFormExport({ formId, format = "docx", final = true, mode = "in-place" }) {
+  const formConfig = await formStore.getForm(formId);
+  if (!formConfig) throw new Error(`Unknown form_id: ${formId}`);
+
+  const context = await loadFormContext(formConfig);
+  if (!context.state) throw new Error("This form does not have a saved session yet.");
+
+  const review = reviewSession(context.schema, context.state);
+  const exportKind = final ? "final" : "draft";
+  if (final && !review.ready_for_final_export) {
+    const blockerCount = review.blockers.length;
+    throw new Error(`This form is not ready for final export (${blockerCount} blocker${blockerCount === 1 ? "" : "s"}).`);
+  }
+
+  const renderedDocx = await renderDocxForContext(context.schema, context.state, context.formConfig, mode, exportKind);
+  if (format === "pdf") {
+    const pdfPath = await convertDocxToPdf(renderedDocx.outPath);
+    return {
+      mode: renderedDocx.mode,
+      export_kind: exportKind,
+      format: "pdf",
+      output_path: pdfPath,
+      output_file: path.basename(pdfPath),
+      review
+    };
+  }
+
+  return {
+    mode: renderedDocx.mode,
+    export_kind: exportKind,
+    format: "docx",
+    output_path: renderedDocx.outPath,
+    output_file: path.basename(renderedDocx.outPath),
+    review
   };
 }
 
@@ -583,6 +972,7 @@ async function importUploadedForm(request, url) {
 
   await saveActiveFormConfig({
     form_id: importedSchema.form_id,
+    title: importedSchema.title,
     schema_path: importedSchemaPath,
     state_path: importedStatePath,
     template_path: canUseAsDocxTemplate(importFormat) ? sourcePath : null,
@@ -614,8 +1004,8 @@ async function importUploadedForm(request, url) {
 
 async function serveDownload(url, response) {
   const requestedFile = path.basename(url.searchParams.get("file") || "");
-  if (!requestedFile || !requestedFile.endsWith(".docx")) {
-    sendJson(response, 400, { error: "Expected a .docx file query parameter." });
+  if (!requestedFile || !/\.(docx|pdf)$/i.test(requestedFile)) {
+    sendJson(response, 400, { error: "Expected a .docx or .pdf file query parameter." });
     return;
   }
 
@@ -626,8 +1016,11 @@ async function serveDownload(url, response) {
   }
 
   const data = await readFile(filePath);
+  const ext = path.extname(filePath).toLowerCase();
   response.writeHead(200, {
-    "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "Content-Type": ext === ".pdf"
+      ? "application/pdf"
+      : "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "Content-Disposition": `attachment; filename="${requestedFile}"`,
     "Cache-Control": "no-store"
   });
@@ -681,6 +1074,50 @@ const server = createServer(async (request, response) => {
     if (url.pathname === "/api/forms/import" && request.method === "POST") {
       const result = await importUploadedForm(request, url);
       sendJson(response, 200, result);
+      return;
+    }
+
+    if (url.pathname === "/api/forms" && request.method === "GET") {
+      await ensureSession();
+      sendJson(response, 200, await listFormLibrary());
+      return;
+    }
+
+    if (url.pathname === "/api/forms/activate" && request.method === "POST") {
+      if (usesEnvironmentFormConfig()) {
+        sendJson(response, 400, { error: "Form switching is disabled while FORM_SCHEMA_PATH, FORM_TEMPLATE_PATH, or SESSION_STATE_PATH is set." });
+        return;
+      }
+
+      const body = await readBody(request);
+      const formConfig = await formStore.setActiveFormId(String(body.form_id || ""));
+      if (!formConfig) {
+        sendJson(response, 404, { error: `Unknown form_id: ${body.form_id}` });
+        return;
+      }
+
+      activeForm = normalizeFormConfig(formConfig);
+      await mkdir(path.dirname(activeFormConfigPath), { recursive: true });
+      await writeFile(activeFormConfigPath, `${JSON.stringify(activeForm, null, 2)}\n`, "utf8");
+      resetLoadedForm();
+      await ensureSession();
+      sendJson(response, 200, buildSessionPayload());
+      return;
+    }
+
+    if (url.pathname === "/api/forms/export" && request.method === "POST") {
+      const body = await readBody(request);
+      const format = body.format === "pdf" ? "pdf" : "docx";
+      const rendered = await renderFormExport({
+        formId: String(body.form_id || ""),
+        format,
+        final: body.final !== false,
+        mode: body.mode === "append" ? "append" : "in-place"
+      });
+      sendJson(response, 200, {
+        ...rendered,
+        download_url: `/api/download?file=${encodeURIComponent(rendered.output_file)}`
+      });
       return;
     }
 
@@ -812,6 +1249,35 @@ const server = createServer(async (request, response) => {
       return;
     }
 
+    if (url.pathname === "/api/interview/orchestrate" && request.method === "POST") {
+      await ensureSession();
+      const body = await readBody(request);
+      const transcript = String(body.transcript || "").trim();
+      const requestedAction = String(body.requested_action || "process_transcript");
+      if (!transcript && requestedAction === "process_transcript") {
+        sendJson(response, 400, { error: "Expected a transcript to orchestrate." });
+        return;
+      }
+
+      const config = getConfig();
+      if (body.use_openrouter === false || !config.openRouterApiKey) {
+        sendJson(response, 400, { error: "Whole-form orchestration requires OPENROUTER_API_KEY." });
+        return;
+      }
+
+      const orchestration = await runWholeFormOrchestration({
+        transcript,
+        requestedAction,
+        useOpenRouter: body.use_openrouter !== false
+      });
+      sendJson(response, 200, {
+        orchestration,
+        extraction: orchestration.extraction,
+        session: buildSessionPayload()
+      });
+      return;
+    }
+
     if (url.pathname === "/api/interview/transcript" && request.method === "POST") {
       await ensureSession();
       const body = await readBody(request);
@@ -881,6 +1347,7 @@ server.listen(port, host, async () => {
   console.log(`Voice form filler running at http://${host}:${port}`);
   console.log(`Schema: ${formConfig.schema_path}`);
   console.log(`Template: ${formConfig.template_path || "generated DOCX fallback"}`);
+  console.log(`Store: ${formStore.dbPath}`);
   console.log(`Profile: ${loadedProfilePath}`);
   console.log(`State: ${formConfig.state_path}`);
 });

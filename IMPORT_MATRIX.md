@@ -10,7 +10,7 @@ This scaffold normalizes every imported form into the same draft schema:
 
 Every imported schema is a draft. Review section grouping, field wording, required flags, and profile-field mapping before using it for a real interview.
 
-The browser app uses the same importer as the CLI. Upload `.docx`, `.pdf`, `.txt`, `.text`, or `.md` from the sidebar; VocaForm stores the source, generated schema, and session state under `work\forms\<import-id>\`, then activates that form immediately.
+The browser app uses the same importer as the CLI. Upload `.docx`, `.pdf`, `.txt`, `.text`, or `.md` from the sidebar; VocaForm stores the source and generated schema under `work\forms\<import-id>\`, records the active form and saved session in `work\vocaform_store.json`, then activates that form immediately. Browser storage is limited to unsaved draft text and UI recovery.
 
 ## DOCX
 

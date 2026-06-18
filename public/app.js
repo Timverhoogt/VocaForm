@@ -5,6 +5,7 @@ let listening = false;
 let preferOpenRouter = true;
 let interviewMode = "field";
 let lastWholeExtraction = null;
+let lastWholeOrchestration = null;
 let realtimePeerConnection = null;
 let realtimeDataChannel = null;
 let realtimeMediaStream = null;
@@ -12,13 +13,25 @@ let realtimeAudioElement = null;
 let realtimeConnected = false;
 let realtimeConnecting = false;
 let assistantTranscript = "";
+let currentView = "interview";
+let formLibrary = null;
 
 const formTitle = document.querySelector("#formTitle");
 const statusLine = document.querySelector("#statusLine");
+const formsButton = document.querySelector("#formsButton");
+const formsPage = document.querySelector("#formsPage");
+const interviewView = document.querySelector("#interviewView");
+const libraryImportButton = document.querySelector("#libraryImportButton");
+const backToInterviewButton = document.querySelector("#backToInterviewButton");
+const formsCapability = document.querySelector("#formsCapability");
+const formsList = document.querySelector("#formsList");
+const formsDownloadLink = document.querySelector("#formsDownloadLink");
 const requiredOpen = document.querySelector("#requiredOpen");
 const totalOpen = document.querySelector("#totalOpen");
 const modelStatus = document.querySelector("#modelStatus");
+const sourceKind = document.querySelector("#sourceKind");
 const sourceStatus = document.querySelector("#sourceStatus");
+const persistenceStatus = document.querySelector("#persistenceStatus");
 const formImportInput = document.querySelector("#formImportInput");
 const formImportButton = document.querySelector("#formImportButton");
 const importStatus = document.querySelector("#importStatus");
@@ -54,6 +67,104 @@ const renderFinalButton = document.querySelector("#renderFinalButton");
 const resetButton = document.querySelector("#resetButton");
 const downloadLink = document.querySelector("#downloadLink");
 const realtimeStatus = document.querySelector("#realtimeStatus");
+
+const storagePrefix = "vocaform.v1";
+
+function storageKey(...parts) {
+  return [storagePrefix, ...parts.map((part) => encodeURIComponent(String(part)))].join(".");
+}
+
+function readLocalJson(key, fallback = null) {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeLocalJson(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Browser storage is only a draft cache; the server store remains canonical.
+  }
+}
+
+function removeLocalKey(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // Ignore browser storage failures.
+  }
+}
+
+function formCacheId() {
+  return session?.form?.id || "unknown-form";
+}
+
+function activeDraftScope() {
+  if (!session) return null;
+  if (isWholeFormMode()) return "whole";
+  const field = currentField();
+  return field?.id || null;
+}
+
+function draftKey(scope = activeDraftScope()) {
+  if (!scope) return null;
+  return storageKey("draft", formCacheId(), scope);
+}
+
+function readDraft(scope = activeDraftScope()) {
+  const key = draftKey(scope);
+  if (!key) return "";
+  return readLocalJson(key, { text: "" })?.text || "";
+}
+
+function writeDraft() {
+  const key = draftKey();
+  if (!key) return;
+  const text = answerText.value;
+  if (!text.trim()) {
+    removeLocalKey(key);
+    return;
+  }
+  writeLocalJson(key, {
+    text,
+    updated_at: new Date().toISOString()
+  });
+}
+
+function clearDraft(scope = activeDraftScope()) {
+  const key = draftKey(scope);
+  if (key) removeLocalKey(key);
+}
+
+function clearFormDrafts(formId = formCacheId()) {
+  const prefix = storageKey("draft", formId);
+  try {
+    for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+      const key = localStorage.key(index);
+      if (key?.startsWith(prefix)) localStorage.removeItem(key);
+    }
+  } catch {
+    // Ignore browser storage failures.
+  }
+}
+
+function readUiCache() {
+  return readLocalJson(storageKey("ui", formCacheId()), {});
+}
+
+function writeUiCache() {
+  if (!session) return;
+  writeLocalJson(storageKey("ui", formCacheId()), {
+    selected_field_id: selectedFieldId,
+    interview_mode: interviewMode,
+    prefer_openrouter: preferOpenRouter,
+    updated_at: new Date().toISOString()
+  });
+}
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -196,12 +307,12 @@ function renderOpenRouterControl() {
   useOpenRouter.checked = available && preferOpenRouter;
   openRouterLabel.textContent = isWholeFormMode() ? "AI extractie" : "AI normaliseren";
   openRouterHint.textContent = available
-    ? (isWholeFormMode() ? "OpenRouter vereist" : (useOpenRouter.checked ? "OpenRouter aan" : "OpenRouter uit"))
+    ? (isWholeFormMode() ? "AI regie actief" : (useOpenRouter.checked ? "OpenRouter aan" : "OpenRouter uit"))
     : "geen API key";
   openRouterControl.classList.toggle("unavailable", !available);
   openRouterControl.title = available
     ? (isWholeFormMode()
-      ? "Gebruik OpenRouter om het volledige transcript naar formuliervelden te halen."
+      ? "Gebruik OpenRouter om de volgende formulieractie te bepalen."
       : "Gebruik OpenRouter om het antwoord te structureren bij Opslaan.")
     : "Configureer OPENROUTER_API_KEY om AI-normalisatie te gebruiken.";
 }
@@ -236,7 +347,7 @@ function renderModeControls() {
   const saveLabel = saveButton.querySelector("span:last-child");
   saveButton.disabled = isWholeFormMode() && !session.has_openrouter_key;
   saveButton.title = isWholeFormMode()
-    ? "Volledig transcript naar formuliervelden verwerken"
+    ? "Volledig transcript via AI regie verwerken"
     : "Antwoord opslaan";
   saveButton.setAttribute("aria-label", saveButton.title);
   if (saveLabel) saveLabel.textContent = isWholeFormMode() ? "Verwerken" : "Opslaan";
@@ -249,8 +360,11 @@ function renderFormSource() {
   const source = session.form.source || {};
   const format = source.format ? source.format.toUpperCase() : "FORM";
   const filename = source.filename || session.form.id || "standaard";
-  sourceStatus.textContent = `${format} · ${filename}`;
+  sourceKind.textContent = format;
+  sourceStatus.textContent = filename;
   sourceStatus.title = session.form.schema_path || filename;
+  persistenceStatus.textContent = session.persistence?.server_store_path ? "Server + draft cache" : "Server";
+  persistenceStatus.title = session.persistence?.server_store_path || "";
   renderDraftButton.title = session.form.can_render_original_docx
     ? "Concept DOCX maken vanuit de bron"
     : "Concept antwoorden-DOCX maken";
@@ -259,6 +373,140 @@ function renderFormSource() {
     ? "Finale DOCX maken vanuit de bron"
     : "Finale antwoorden-DOCX maken";
   renderFinalButton.setAttribute("aria-label", renderFinalButton.title);
+}
+
+function setView(view) {
+  currentView = view === "forms" ? "forms" : "interview";
+  formsPage.hidden = currentView !== "forms";
+  interviewView.hidden = currentView === "forms";
+  formsButton.classList.toggle("active-view", currentView === "forms");
+  formsButton.setAttribute("aria-pressed", String(currentView === "forms"));
+  if (currentView === "forms") loadFormsLibrary();
+}
+
+function formatSource(source) {
+  const format = String(source?.format || "form").toUpperCase();
+  const filename = source?.filename || "formulier";
+  return `${format} · ${filename}`;
+}
+
+function progressStatus(form) {
+  if (form.error) return { label: "Fout", className: "blocked" };
+  if (form.progress?.ready_for_final_export) return { label: "Klaar", className: "ready" };
+  return { label: `${form.progress?.blockers || 0} open`, className: "blocked" };
+}
+
+function createFormRow(form) {
+  const row = document.createElement("article");
+  row.className = `form-row ${form.is_active ? "active" : ""}`;
+  row.dataset.formId = form.id;
+
+  const status = progressStatus(form);
+  const percent = form.progress?.percent ?? 0;
+  const completed = form.progress?.completed_fields ?? 0;
+  const total = form.progress?.total_fields ?? 0;
+  const ready = Boolean(form.progress?.ready_for_final_export);
+  const pdfAvailable = Boolean(form.exports?.pdf?.available);
+  const pdfReason = form.exports?.pdf?.reason || "PDF export is niet beschikbaar.";
+
+  row.innerHTML = `
+    <div class="form-main">
+      <div class="form-title-line">
+        <span class="form-status-chip ${status.className}">${status.label}</span>
+        <span class="form-title-text"></span>
+      </div>
+      <div class="form-source-line"></div>
+    </div>
+    <div class="form-progress">
+      <span class="form-percent">${percent}%</span>
+      <div class="form-progress-copy">
+        <div class="form-progress-bar" aria-hidden="true">
+          <div class="form-progress-fill" style="width: ${Math.max(0, Math.min(100, percent))}%"></div>
+        </div>
+        <div class="form-progress-meta">${completed}/${total} velden · ${form.progress?.blockers || 0} blockers · ${form.progress?.warnings || 0} warnings</div>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="form-action" data-action="open">${form.is_active ? "Open" : "Openen"}</button>
+      <button type="button" class="form-action" data-action="export-docx" ${ready ? "" : "disabled"}>DOCX</button>
+      <button type="button" class="form-action" data-action="export-pdf" ${ready && pdfAvailable ? "" : "disabled"}>PDF</button>
+    </div>
+  `;
+
+  row.querySelector(".form-title-text").textContent = form.title || form.id;
+  row.querySelector(".form-source-line").textContent = `${formatSource(form.source)}${form.is_active ? " · actief" : ""}`;
+  row.querySelector('[data-action="export-docx"]').title = ready ? "Finale DOCX exporteren" : "Los eerst de blockers op";
+  row.querySelector('[data-action="export-pdf"]').title = ready
+    ? (pdfAvailable ? "Finale PDF exporteren" : pdfReason)
+    : "Los eerst de blockers op";
+  return row;
+}
+
+function renderFormsLibrary() {
+  if (!formLibrary) {
+    formsCapability.textContent = "Formulieren laden";
+    formsList.replaceChildren();
+    return;
+  }
+
+  formsCapability.textContent = formLibrary.office?.available
+    ? `PDF export via ${formLibrary.office.version || formLibrary.office.command}`
+    : "PDF export uit: LibreOffice/soffice niet gevonden";
+
+  if (!formLibrary.forms.length) {
+    const empty = document.createElement("div");
+    empty.className = "form-empty";
+    empty.textContent = "Nog geen formulieren. Importeer een DOCX, PDF of tekstbestand.";
+    formsList.replaceChildren(empty);
+    return;
+  }
+
+  formsList.replaceChildren(...formLibrary.forms.map(createFormRow));
+}
+
+async function loadFormsLibrary() {
+  formsCapability.textContent = "Formulieren laden";
+  formLibrary = await api("/api/forms");
+  renderFormsLibrary();
+}
+
+async function openStoredForm(formId) {
+  writeDraft();
+  const result = await api("/api/forms/activate", {
+    method: "POST",
+    body: JSON.stringify({ form_id: formId })
+  });
+  session = result;
+  const profile = await api("/api/profile");
+  profileEditor.value = JSON.stringify(profile.profile, null, 2);
+  selectedFieldId = session.next_field?.id || session.fields[0]?.id || null;
+  answerText.value = readDraft(selectedFieldId) || "";
+  formsDownloadLink.hidden = true;
+  setView("interview");
+  render();
+}
+
+async function exportStoredForm(formId, format) {
+  formsCapability.textContent = `Export ${format.toUpperCase()} maken`;
+  formsDownloadLink.hidden = true;
+  try {
+    const result = await api("/api/forms/export", {
+      method: "POST",
+      body: JSON.stringify({
+        form_id: formId,
+        format,
+        final: true
+      })
+    });
+    formsCapability.textContent = `${format.toUpperCase()} klaar: ${result.output_file}`;
+    formsDownloadLink.href = result.download_url;
+    formsDownloadLink.download = result.output_file;
+    formsDownloadLink.textContent = `Download ${result.output_file}`;
+    formsDownloadLink.hidden = false;
+    await loadFormsLibrary();
+  } catch (error) {
+    formsCapability.textContent = error.message;
+  }
 }
 
 function render() {
@@ -344,9 +592,10 @@ function render() {
       ? openFields.slice(0, 4).map((field) => field.label).join(" / ")
       : "";
     assistantText.textContent = assistantTranscript;
-    savedAnswer.textContent = lastWholeExtraction
+    savedAnswer.textContent = lastWholeOrchestration?.decision?.user_message || (lastWholeExtraction
       ? `${lastWholeExtraction.answers.length} antwoorden verwerkt`
-      : "";
+      : "");
+    if (!answerText.value) answerText.value = readDraft("whole");
     return;
   }
 
@@ -372,10 +621,12 @@ function render() {
 function selectField(fieldId) {
   const field = session.fields.find((item) => item.id === fieldId);
   if (!field) return;
+  writeDraft();
   interviewMode = "field";
   selectedFieldId = field.id;
   const answer = answerFor(field.id);
-  answerText.value = answer.normalized_answer || answer.raw_answer || "";
+  answerText.value = readDraft(field.id) || answer.normalized_answer || answer.raw_answer || "";
+  writeUiCache();
   render();
   answerText.focus();
   promptRealtimeCurrentField("veld gewijzigd");
@@ -385,15 +636,27 @@ async function loadSession() {
   session = await api("/api/session");
   const profile = await api("/api/profile");
   profileEditor.value = JSON.stringify(profile.profile, null, 2);
-  selectedFieldId = session.next_field?.id || session.fields[0]?.id || null;
+  const uiCache = readUiCache();
+  preferOpenRouter = uiCache.prefer_openrouter ?? preferOpenRouter;
+  interviewMode = uiCache.interview_mode === "whole" ? "whole" : "field";
+  selectedFieldId = session.fields.some((field) => field.id === uiCache.selected_field_id)
+    ? uiCache.selected_field_id
+    : session.next_field?.id || session.fields[0]?.id || null;
+  const selectedAnswer = selectedFieldId ? answerFor(selectedFieldId) : null;
+  answerText.value = isWholeFormMode()
+    ? readDraft("whole")
+    : readDraft(selectedFieldId) || selectedAnswer?.normalized_answer || selectedAnswer?.raw_answer || "";
   render();
 }
 
 async function importFormFile(file) {
   if (!file) return;
   formImportButton.disabled = true;
+  libraryImportButton.disabled = true;
   importStatus.textContent = "Importeren";
+  if (currentView === "forms") formsCapability.textContent = "Formulier importeren";
   downloadLink.hidden = true;
+  formsDownloadLink.hidden = true;
 
   try {
     const params = new URLSearchParams({ filename: file.name });
@@ -410,14 +673,22 @@ async function importFormFile(file) {
     profileEditor.value = JSON.stringify(profile.profile, null, 2);
     selectedFieldId = session.next_field?.id || session.fields[0]?.id || null;
     lastWholeExtraction = null;
+    lastWholeOrchestration = null;
     answerText.value = "";
-    importStatus.textContent = `${body.summary.fields} velden geïmporteerd`;
-    render();
-    promptRealtimeCurrentField("nieuw formulier geïmporteerd");
+    importStatus.textContent = `${body.summary.fields} velden geimporteerd`;
+    writeUiCache();
+    if (currentView === "forms") {
+      await loadFormsLibrary();
+    } else {
+      render();
+      promptRealtimeCurrentField("nieuw formulier geimporteerd");
+    }
   } catch (error) {
     importStatus.textContent = error.message;
+    if (currentView === "forms") formsCapability.textContent = error.message;
   } finally {
     formImportButton.disabled = false;
+    libraryImportButton.disabled = false;
     formImportInput.value = "";
   }
 }
@@ -691,10 +962,12 @@ async function saveAnswer() {
       use_openrouter: useOpenRouter.checked
     })
   });
+  clearDraft(field.id);
   session = result.session;
   selectedFieldId = session.next_field?.id || field.id;
   answerText.value = "";
   downloadLink.hidden = true;
+  writeUiCache();
   render();
   if (isRealtimeOpen()) promptRealtimeCurrentField("volgende vraag");
   else speakCurrentQuestion();
@@ -707,25 +980,34 @@ async function saveWholeTranscript() {
   }
 
   if (!session.has_openrouter_key) {
-    statusLine.textContent = "OpenRouter API key nodig voor hele-formulier extractie";
+    statusLine.textContent = "OpenRouter API key nodig voor AI regie";
     return;
   }
 
   saveButton.disabled = true;
-  statusLine.textContent = "Transcript verwerken";
+  statusLine.textContent = "AI regie bepaalt de volgende stap";
   try {
-    const result = await api("/api/interview/transcript", {
+    const result = await api("/api/interview/orchestrate", {
       method: "POST",
       body: JSON.stringify({
         transcript: answerText.value,
+        requested_action: "process_transcript",
         use_openrouter: useOpenRouter.checked
       })
     });
     session = result.session;
     lastWholeExtraction = result.extraction;
-    selectedFieldId = session.next_field?.id || selectedFieldId;
+    lastWholeOrchestration = result.orchestration;
+    if (result.orchestration.decision.should_clear_transcript) {
+      clearDraft("whole");
+      answerText.value = "";
+    }
+    selectedFieldId = result.orchestration.decision.target_field_id || session.next_field?.id || selectedFieldId;
+    assistantTranscript = result.orchestration.decision.user_message;
     downloadLink.hidden = true;
-    statusLine.textContent = `Transcript verwerkt: ${result.extraction.answers.length} antwoorden`;
+    statusLine.textContent = result.orchestration.decision.action === "extract_answers"
+      ? `Transcript verwerkt: ${result.extraction.answers.length} antwoorden`
+      : result.orchestration.decision.user_message;
     render();
     if (isRealtimeOpen()) promptRealtimeCurrentField("open velden na verwerking");
   } catch (error) {
@@ -747,10 +1029,12 @@ async function saveManualAnswer(status = "answered") {
       status
     })
   });
+  clearDraft(field.id);
   session = result.session;
   selectedFieldId = status === "skipped" ? (session.next_field?.id || field.id) : field.id;
   if (status === "skipped") answerText.value = "";
   downloadLink.hidden = true;
+  writeUiCache();
   render();
   if (status === "skipped") {
     if (isRealtimeOpen()) promptRealtimeCurrentField("volgende vraag");
@@ -783,8 +1067,11 @@ async function resetSession() {
   session = await api("/api/reset", { method: "POST", body: "{}" });
   selectedFieldId = session.next_field?.id || session.fields[0]?.id || null;
   lastWholeExtraction = null;
+  lastWholeOrchestration = null;
+  clearFormDrafts();
   answerText.value = "";
   downloadLink.hidden = true;
+  writeUiCache();
   render();
   promptRealtimeCurrentField("opnieuw gestart");
 }
@@ -802,10 +1089,12 @@ async function saveProfile() {
     method: "PUT",
     body: JSON.stringify({ profile })
   });
+  clearFormDrafts();
   session = result.session;
   profileEditor.value = JSON.stringify(result.profile, null, 2);
   selectedFieldId = session.next_field?.id || session.fields[0]?.id || null;
   lastWholeExtraction = null;
+  lastWholeOrchestration = null;
   answerText.value = "";
   downloadLink.hidden = true;
   render();
@@ -813,12 +1102,16 @@ async function saveProfile() {
 }
 
 function setInterviewMode(mode) {
+  writeDraft();
   interviewMode = mode === "whole" ? "whole" : "field";
   if (!isWholeFormMode()) {
     const field = currentField();
     const answer = field ? answerFor(field.id) : null;
-    answerText.value = answer?.normalized_answer || answer?.raw_answer || answerText.value;
+    answerText.value = readDraft(field?.id) || answer?.normalized_answer || answer?.raw_answer || "";
+  } else {
+    answerText.value = readDraft("whole") || "";
   }
+  writeUiCache();
   render();
   promptRealtimeCurrentField("modus gewijzigd");
 }
@@ -826,7 +1119,29 @@ function setInterviewMode(mode) {
 fieldModeButton.addEventListener("click", () => setInterviewMode("field"));
 wholeModeButton.addEventListener("click", () => setInterviewMode("whole"));
 formImportButton.addEventListener("click", () => formImportInput.click());
+libraryImportButton.addEventListener("click", () => formImportInput.click());
 formImportInput.addEventListener("change", () => importFormFile(formImportInput.files[0]));
+formsButton.addEventListener("click", () => setView("forms"));
+backToInterviewButton.addEventListener("click", () => setView("interview"));
+formsList.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-action]");
+  if (!button) return;
+  const row = button.closest(".form-row");
+  const formId = row?.dataset.formId;
+  if (!formId) return;
+  if (button.dataset.action === "open") {
+    openStoredForm(formId).catch((error) => {
+      formsCapability.textContent = error.message;
+    });
+  }
+  if (button.dataset.action === "export-docx") {
+    exportStoredForm(formId, "docx");
+  }
+  if (button.dataset.action === "export-pdf") {
+    exportStoredForm(formId, "pdf");
+  }
+});
+answerText.addEventListener("input", writeDraft);
 speakButton.addEventListener("click", speakCurrentQuestion);
 listenButton.addEventListener("click", toggleListening);
 saveButton.addEventListener("click", saveAnswer);
@@ -838,6 +1153,7 @@ resetButton.addEventListener("click", resetSession);
 profileSaveButton.addEventListener("click", saveProfile);
 useOpenRouter.addEventListener("change", () => {
   preferOpenRouter = useOpenRouter.checked;
+  writeUiCache();
   renderOpenRouterControl();
 });
 

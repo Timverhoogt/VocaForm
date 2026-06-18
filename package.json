@@ -6,6 +6,7 @@
   "scripts": {
     "check": "node src/check.mjs",
     "check-anchors": "node src/check_docx_anchors.mjs",
+    "check-orchestrator": "node src/check_orchestrator.mjs",
     "check-session": "node src/check_session.mjs",
     "demo": "node src/demo.mjs",
     "import-docx": "node src/import_docx_schema.mjs",

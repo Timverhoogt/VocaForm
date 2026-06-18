@@ -23,6 +23,10 @@
           <button id="wholeModeButton" type="button" class="mode-option" aria-pressed="false">Hele formulier</button>
         </div>
         <div class="toolbar" aria-label="Acties">
+          <button id="formsButton" class="tool-button" title="Formulieren bekijken" aria-label="Formulieren bekijken">
+            <span class="icon icon-list" aria-hidden="true"></span>
+            <span>Forms</span>
+          </button>
           <button id="speakButton" class="tool-button" title="Voorlezen met browserstem" aria-label="Voorlezen met browserstem">
             <span class="icon icon-play" aria-hidden="true"></span>
             <span>Browserstem</span>
@@ -46,7 +50,29 @@
         </div>
       </header>
 
-      <section class="workband">
+      <section id="formsPage" class="forms-page" hidden>
+        <div class="forms-page-head">
+          <div>
+            <p class="forms-eyebrow">Formulierbibliotheek</p>
+            <h2 class="forms-title">Open werk, afgeronde formulieren en exports</h2>
+          </div>
+          <div class="forms-head-actions">
+            <button id="libraryImportButton" class="tool-button secondary-action" title="Nieuw formulier importeren" aria-label="Nieuw formulier importeren">
+              <span class="icon icon-upload" aria-hidden="true"></span>
+              <span>Nieuw formulier</span>
+            </button>
+            <button id="backToInterviewButton" class="tool-button" title="Terug naar interview" aria-label="Terug naar interview">
+              <span class="icon icon-return" aria-hidden="true"></span>
+              <span>Interview</span>
+            </button>
+          </div>
+        </div>
+        <div id="formsCapability" class="forms-capability"></div>
+        <div id="formsList" class="forms-list" aria-live="polite"></div>
+        <a id="formsDownloadLink" class="forms-download" href="#" hidden>Download export</a>
+      </section>
+
+      <section id="interviewView" class="workband">
         <aside class="progress-panel">
           <div class="rail-heading">
             <p>Interview</p>
@@ -69,18 +95,20 @@
               <dd id="modelStatus">uit</dd>
             </div>
           </dl>
-          <section class="import-box">
-            <div class="import-head">
-              <strong>Formulier</strong>
-              <span id="sourceStatus">standaard</span>
+          <div class="source-strip" aria-label="Actief formulier">
+            <div class="source-file">
+              <span class="source-kind" id="sourceKind">FORM</span>
+              <span class="source-copy">
+                <span id="sourceStatus">standaard</span>
+                <span id="persistenceStatus">server</span>
+              </span>
             </div>
             <input id="formImportInput" type="file" accept=".docx,.pdf,.txt,.text,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown" hidden>
-            <button id="formImportButton" class="wide-button" title="DOCX, PDF of tekstformulier importeren" aria-label="DOCX, PDF of tekstformulier importeren">
+            <button id="formImportButton" class="icon-button" title="Formulier importeren" aria-label="Formulier importeren">
               <span class="icon icon-upload" aria-hidden="true"></span>
-              <span>Importeren</span>
             </button>
-            <p id="importStatus"></p>
-          </section>
+          </div>
+          <p id="importStatus" class="source-message" aria-live="polite"></p>
           <section class="profile-box">
             <div class="profile-head">
               <strong>Profiel</strong>

@@ -1,7 +1,8 @@
 export function getConfig(env = process.env) {
   return {
     openRouterApiKey: env.OPENROUTER_API_KEY || "",
-    openRouterModel: env.OPENROUTER_MODEL || "~openai/gpt-latest",
+    openRouterModel: env.OPENROUTER_MODEL || "minimax/minimax-m3",
+    openRouterStructuredModel: env.OPENROUTER_STRUCTURED_MODEL || "minimax/minimax-m3",
     referer: env.OPENROUTER_REFERER || "http://localhost",
     title: env.OPENROUTER_TITLE || "Voice Form Filler",
     dataCollection: env.OPENROUTER_DATA_COLLECTION || "deny",
