@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>VocaForm</title>
+    <link rel="icon" href="/assets/vocaform-mark.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand-lockup">
+          <img class="brand-mark" src="/assets/vocaform-mark.svg" alt="" width="56" height="56">
+          <div>
+            <p class="brand-name">VocaForm</p>
+            <h1 id="formTitle">Formulier</h1>
+            <p id="statusLine">Laden</p>
+          </div>
+        </div>
+        <div class="toolbar" aria-label="Acties">
+          <button id="speakButton" title="Vraag voorlezen" aria-label="Vraag voorlezen">Play</button>
+          <button id="listenButton" title="Antwoord inspreken" aria-label="Antwoord inspreken">Rec</button>
+          <button id="saveButton" title="Antwoord opslaan" aria-label="Antwoord opslaan">Save</button>
+          <button id="renderDraftButton" title="Concept DOCX maken" aria-label="Concept DOCX maken">Draft DOCX</button>
+          <button id="renderFinalButton" title="Finale DOCX maken" aria-label="Finale DOCX maken">Final DOCX</button>
+          <button id="resetButton" title="Opnieuw beginnen" aria-label="Opnieuw beginnen">Reset</button>
+        </div>
+      </header>
+
+      <section class="workband">
+        <aside class="progress-panel">
+          <div class="meter">
+            <div id="meterFill"></div>
+          </div>
+          <dl>
+            <div>
+              <dt>Open verplicht</dt>
+              <dd id="requiredOpen">0</dd>
+            </div>
+            <div>
+              <dt>Open totaal</dt>
+              <dd id="totalOpen">0</dd>
+            </div>
+            <div>
+              <dt>OpenRouter</dt>
+              <dd id="modelStatus">uit</dd>
+            </div>
+          </dl>
+          <section class="profile-box">
+            <div class="profile-head">
+              <strong>Profiel</strong>
+              <span id="profileStatus">niet geladen</span>
+            </div>
+            <textarea id="profileEditor" rows="10" spellcheck="false"></textarea>
+            <button id="profileSaveButton" title="Profiel opslaan" aria-label="Profiel opslaan">Save profile</button>
+          </section>
+          <section class="review-box">
+            <div class="review-head">
+              <strong>Review</strong>
+              <span id="reviewStatus">concept</span>
+            </div>
+            <div class="review-counts">
+              <span id="blockerCount">0 blockers</span>
+              <span id="warningCount">0 warnings</span>
+            </div>
+            <ul id="reviewList"></ul>
+          </section>
+          <nav id="fieldList" aria-label="Velden"></nav>
+        </aside>
+
+        <section class="interview-panel">
+          <div class="section-label" id="sectionLabel">Sectie</div>
+          <h2 id="fieldLabel">Vraag</h2>
+          <p id="questionText"></p>
+          <textarea id="answerText" rows="8" spellcheck="true"></textarea>
+          <div class="answer-meta">
+            <span id="recognitionStatus">microfoon stil</span>
+            <label>
+              <input id="useOpenRouter" type="checkbox" checked>
+              OpenRouter
+            </label>
+          </div>
+          <div class="answer-actions">
+            <button id="manualSaveButton" title="Tekst zonder model opslaan" aria-label="Tekst zonder model opslaan">Save text</button>
+            <button id="skipButton" title="Veld overslaan" aria-label="Veld overslaan">Skip field</button>
+          </div>
+          <div id="savedAnswer"></div>
+          <a id="downloadLink" href="#" hidden>Download DOCX</a>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

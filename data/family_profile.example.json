@@ -1,0 +1,37 @@
+{
+  "profile_id": "family-local-example",
+  "locale": "nl-NL",
+  "child": {
+    "full_name": "<child full name>",
+    "preferred_name": "<child preferred name>",
+    "birthdate": ""
+  },
+  "parents_or_guardians": [
+    {
+      "full_name": "<parent or guardian 1>"
+    },
+    {
+      "full_name": "<parent or guardian 2>"
+    }
+  ],
+  "household": {
+    "address": "<street, postal code, city>"
+  },
+  "care": {
+    "general_practitioner": {
+      "name": "<gp name>",
+      "phone": "<gp phone>"
+    },
+    "dentist": {
+      "name": "<dentist practice>",
+      "phone": "<dentist phone>"
+    },
+    "after_school_care": {
+      "name": "<bso name or location>"
+    }
+  },
+  "preferences": {
+    "final_answer_style": "warm, feitelijk, kort genoeg voor een schoolformulier",
+    "interview_language": "nl-NL"
+  }
+}

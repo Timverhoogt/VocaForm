@@ -1,0 +1,584 @@
+{
+  "form_id": "entreeformulier_dit_ben_ik",
+  "version": "0.1.0",
+  "title": "Entreeformulier Dit ben ik",
+  "language": "nl-NL",
+  "source": {
+    "filename": "Kopie van Entreeformulier leeg.docx",
+    "format": "docx"
+  },
+  "profile_fields": [
+    {
+      "id": "child_full_name",
+      "label": "Naam van het kind",
+      "profile_key": "child.full_name"
+    },
+    {
+      "id": "child_preferred_name",
+      "label": "Roepnaam",
+      "profile_key": "child.preferred_name"
+    },
+    {
+      "id": "child_birthdate",
+      "label": "Geboortedatum",
+      "profile_key": "child.birthdate"
+    },
+    {
+      "id": "parents_or_guardians",
+      "label": "Namen van ouders/verzorgers",
+      "profile_key": "parents_or_guardians"
+    },
+    {
+      "id": "address",
+      "label": "Adres(sen)",
+      "profile_key": "household.address"
+    },
+    {
+      "id": "general_practitioner",
+      "label": "Huisarts",
+      "profile_key": "care.general_practitioner"
+    },
+    {
+      "id": "after_school_care",
+      "label": "Buitenschoolse opvang",
+      "profile_key": "care.after_school_care"
+    },
+    {
+      "id": "dentist",
+      "label": "Tandarts",
+      "profile_key": "care.dentist"
+    }
+  ],
+  "sections": [
+    {
+      "id": "life_history",
+      "title": "Levensgeschiedenis",
+      "fields": [
+        {
+          "id": "life_baby_toddler",
+          "label": "Hoe was het kind als baby/peuter?",
+          "render_anchor": "Hoe was het kind als baby/peuter?",
+          "type": "long_text",
+          "required": true,
+          "interview_prompt": "Vertel kort hoe Mees was als baby en peuter. Denk aan slapen, eten, temperament, gezondheid en opvallende dingen.",
+          "examples": [
+            "rustige baby, at en sliep goed",
+            "veel oorontstekingen of ziekenhuisbezoek",
+            "druk, ondernemend, gevoelig of voorzichtig"
+          ]
+        },
+        {
+          "id": "life_special_events",
+          "label": "Bijzondere gebeurtenissen, gezin, ziekte, verhuizing, eten, drinken, medicijnen",
+          "render_anchor": "Bijzondere gebeurtenissen in gezin, ziekte, ziekenhuisopname, scheiding ouders, verhuizing, sterfgeval. Bijzonderheden i.v.m. eten, snoepen, drinken, medicijnen.",
+          "type": "long_text",
+          "required": false,
+          "interview_prompt": "Zijn er bijzondere gebeurtenissen of aandachtspunten die school moet weten? Bijvoorbeeld ziekte, ziekenhuis, verhuizing, gezinsverandering, eten, drinken of medicijnen.",
+          "examples": [
+            "geen bijzonderheden",
+            "verhuizing rond zijn derde",
+            "medicatie of dieetafspraken"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "social_emotional",
+      "title": "Sociaal emotionele ontwikkeling",
+      "fields": [
+        {
+          "id": "social_family",
+          "label": "Omgang met ouders, broertjes en/of zusjes",
+          "render_anchor": "Hoe is de omgang met ouders, broertje(s) en/of zusje(s)?",
+          "type": "long_text",
+          "required": true,
+          "interview_prompt": "Hoe gaat Mees thuis om met jullie en eventuele broertjes of zusjes?",
+          "examples": [
+            "zoekt veel contact met ouders",
+            "speelt graag samen",
+            "kan soms boos worden en heeft dan hulp nodig om rustig te worden"
+          ]
+        },
+        {
+          "id": "social_children_adults",
+          "label": "Omgang met andere kinderen en volwassenen",
+          "render_anchor": "Hoe is de omgang met andere kinderen en volwassenen?",
+          "type": "long_text",
+          "required": true,
+          "interview_prompt": "Hoe gaat Mees om met andere kinderen en met volwassenen buiten het gezin?",
+          "examples": [
+            "stapt makkelijk op kinderen af",
+            "speelt eerst naast andere kinderen en later samen",
+            "is afwachtend bij volwassenen"
+          ]
+        },
+        {
+          "id": "social_known_unknown",
+          "label": "Verschil tussen bekenden en onbekenden",
+          "render_anchor": "Is er een verschil in omgang tussen bekenden en onbekenden?",
+          "type": "long_text",
+          "required": true,
+          "interview_prompt": "Is Mees anders bij bekenden dan bij onbekenden?",
+          "examples": [
+            "praat veel bij bekenden, kijkt bij onbekenden eerst af",
+            "is snel op zijn gemak",
+            "heeft wat tijd nodig"
+          ]
+        },
+        {
+          "id": "social_difficult_situations",
+          "label": "Reactie in onbekende of moeilijke situaties",
+          "render_anchor": "Hoe reageert het kind in onbekende of moeilijke situaties?",
+          "type": "long_text",
+          "required": true,
+          "interview_prompt": "Hoe reageert Mees als iets nieuw, spannend of moeilijk is?",
+          "examples": [
+            "wil eerst kijken",
+            "vraagt hulp",
+            "kan gefrustreerd raken als iets niet lukt"
+          ]
+        },
+        {
+          "id": "social_school_fit",
+          "label": "Verwachtingen over aansluiting bij andere kinderen op school",
+          "render_anchor": "Verwachtingen over aansluiting bij andere kinderen op school.",
+          "type": "long_text",
+          "required": false,
+          "interview_prompt": "Wat verwacht je van zijn aansluiting bij andere kinderen op school?",
+          "examples": [
+            "zal waarschijnlijk snel aansluiting vinden",
+            "heeft begeleiding nodig in nieuwe groepen",
+            "vindt samenspel leuk maar moet soms leren delen"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "play",
+      "title": "Spelontwikkeling",
+      "fields": [
+        {
+          "id": "play_favorite_activity",
+          "label": "Favoriete spelactiviteit en speelkameraden",
+          "render_anchor": "Welke spelactiviteit is favoriet bij uw kind? Voorkeur voor spel en speelkameraden?",
+          "type": "long_text",
+          "required": true,
+          "interview_prompt": "Waar speelt Mees het liefst mee of aan? En speelt hij liever met bepaalde kinderen of volwassenen?",
+          "examples": [
+            "bouwen, voertuigen, buiten spelen",
+            "rollenspel of fantasie",
+            "graag met oudere kinderen"
+          ]
+        },
+        {
+          "id": "play_alone_together",
+          "label": "Alleen of samen spelen",
+          "render_anchor": "Hoe speelt uw kind, alleen of samen?",
+          "type": "long_text",
+          "required": true,
+          "interview_prompt": "Speelt Mees vooral alleen, naast anderen of echt samen?",
+          "examples": [
+            "kan goed alleen spelen",
+            "zoekt vaak samenspel",
+            "wisselt af"
+          ]
+        },
+        {
+          "id": "play_inside_outside",
+          "label": "Binnen of buiten spelen",
+          "render_anchor": "Waar speelt uw kind het liefst; binnen /buiten?",
+          "type": "short_text",
+          "required": true,
+          "interview_prompt": "Speelt Mees liever binnen of buiten?",
+          "examples": [
+            "liefst buiten",
+            "binnen bouwen en buiten rennen/fietsen",
+            "geen duidelijke voorkeur"
+          ]
+        },
+        {
+          "id": "play_favorite_toys",
+          "label": "Favoriet speelgoed",
+          "render_anchor": "Welk speelgoed is favoriet?",
+          "type": "short_text",
+          "required": false,
+          "interview_prompt": "Welk speelgoed is favoriet?",
+          "examples": [
+            "lego/duplo",
+            "autos",
+            "boekjes",
+            "knutselspullen"
+          ]
+        },
+        {
+          "id": "play_making_things",
+          "label": "Maakt graag iets",
+          "render_anchor": "Maakt uw kind graag iets? (kleien, timmeren, vouwen etc.)",
+          "type": "long_text",
+          "required": false,
+          "interview_prompt": "Maakt Mees graag dingen, zoals kleien, bouwen, tekenen, timmeren of vouwen?",
+          "examples": [
+            "bouwt graag",
+            "tekent af en toe",
+            "knutselt met hulp"
+          ]
+        },
+        {
+          "id": "play_concentration",
+          "label": "Concentratie of snel afgeleid",
+          "render_anchor": "Is het kind geconcentreerd bezig, of kijkt het voortdurend op als het iets anders hoort/ziet?",
+          "type": "long_text",
+          "required": true,
+          "interview_prompt": "Kan Mees geconcentreerd bezig zijn, of is hij snel afgeleid door wat hij hoort of ziet?",
+          "examples": [
+            "kan lang bouwen",
+            "is snel afgeleid bij veel prikkels",
+            "hangt af van de activiteit"
+          ]
+        },
+        {
+          "id": "play_television",
+          "label": "Televisieprogramma",
+          "render_anchor": "Welk televisieprogramma bekijkt uw kind?",
+          "type": "short_text",
+          "required": false,
+          "interview_prompt": "Welke televisieprogramma's of filmpjes kijkt Mees graag?",
+          "examples": [
+            "Paw Patrol",
+            "Bluey",
+            "kijkt weinig televisie"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "language",
+      "title": "Taalontwikkeling",
+      "fields": [
+        {
+          "id": "language_learning_to_talk",
+          "label": "Hoe verliep het leren praten",
+          "render_anchor": "Hoe verliep het leren praten?",
+          "type": "long_text",
+          "required": true,
+          "interview_prompt": "Hoe verliep het leren praten bij Mees?",
+          "examples": [
+            "op gang gekomen volgens verwachting",
+            "laat begonnen maar daarna snel ingehaald",
+            "veel woorden en zinnen"
+          ]
+        },
+        {
+          "id": "language_current_speech",
+          "label": "Hoe spreekt het kind nu en is het begrijpelijk voor buitenstaanders",
+          "render_anchor": "Hoe spreekt uw kind nu? (Is het begrijpelijk voor een buitenstaander?)",
+          "type": "long_text",
+          "required": true,
+          "interview_prompt": "Hoe spreekt Mees nu? Is hij goed te begrijpen voor mensen buiten het gezin?",
+          "examples": [
+            "meestal goed verstaanbaar",
+            "ouders begrijpen hem beter dan buitenstaanders",
+            "maakt al langere zinnen"
+          ]
+        },
+        {
+          "id": "language_books_stories",
+          "label": "Belangstelling voor boekjes en verhaaltjes",
+          "render_anchor": "Heeft uw kind belangstelling voor boekjes en verhaaltjes( welke?)",
+          "type": "long_text",
+          "required": false,
+          "interview_prompt": "Heeft Mees belangstelling voor boekjes en verhaaltjes? Welke soorten vindt hij leuk?",
+          "examples": [
+            "houdt van voorlezen",
+            "dierenboekjes",
+            "wijst plaatjes aan en benoemt dingen"
+          ]
+        },
+        {
+          "id": "language_letters_numbers",
+          "label": "Interesse in letters, woorden en cijfers",
+          "render_anchor": "Heeft uw kind interesse in letters, woorden en cijfers?",
+          "type": "long_text",
+          "required": false,
+          "interview_prompt": "Toont Mees interesse in letters, woorden of cijfers?",
+          "examples": [
+            "herkent eigen naam",
+            "telt graag",
+            "nog weinig interesse"
+          ]
+        },
+        {
+          "id": "language_retell_speech_therapy",
+          "label": "Versje/verhaaltje onthouden en navertellen, logopedie",
+          "render_anchor": "Kan uw kind een versje, verhaaltje onthouden en navertellen ?",
+          "type": "long_text",
+          "required": true,
+          "interview_prompt": "Kan Mees een versje of verhaaltje onthouden en navertellen? En gaat hij naar logopedie?",
+          "examples": [
+            "zingt liedjes mee",
+            "vertelt korte gebeurtenissen na",
+            "geen logopedie"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "math_thinking",
+      "title": "Reken- en denkontwikkeling",
+      "fields": [
+        {
+          "id": "math_quantities_numbers",
+          "label": "Begrip van hoeveelheden en getallen",
+          "render_anchor": "Heeft uw kind enig begrip van hoeveelheden en getallen?",
+          "type": "long_text",
+          "required": true,
+          "interview_prompt": "Heeft Mees begrip van hoeveelheden en getallen?",
+          "examples": [
+            "begrijpt een beetje veel/weinig",
+            "telt voorwerpen",
+            "herkent sommige cijfers"
+          ]
+        },
+        {
+          "id": "math_counting",
+          "label": "Tot hoever kan het kind tellen",
+          "render_anchor": "Tot hoever kan uw kind tellen?",
+          "type": "short_text",
+          "required": false,
+          "interview_prompt": "Tot hoever kan Mees tellen, ongeveer?",
+          "examples": [
+            "tot 10",
+            "tot 20",
+            "telt nog niet consequent"
+          ]
+        },
+        {
+          "id": "math_more_less",
+          "label": "Begrip van meer en minder",
+          "render_anchor": "Weet uw kind wat meer en minder is?",
+          "type": "long_text",
+          "required": false,
+          "interview_prompt": "Weet Mees wat meer en minder is?",
+          "examples": [
+            "begrijpt meer en minder in dagelijkse situaties",
+            "vindt dit nog lastig",
+            "begrijpt het soms met voorbeelden"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "music",
+      "title": "Muzische vorming",
+      "fields": [
+        {
+          "id": "music_likes_music",
+          "label": "Houdt van muziek",
+          "render_anchor": "Houdt uw kind van muziek?",
+          "type": "long_text",
+          "required": false,
+          "interview_prompt": "Houdt Mees van muziek?",
+          "examples": [
+            "zingt graag mee",
+            "danst op muziek",
+            "luistert vooral in de auto"
+          ]
+        },
+        {
+          "id": "music_moving",
+          "label": "Bewegen op muziek",
+          "render_anchor": "Vindt uw kind het bewegen op muziek leuk?",
+          "type": "long_text",
+          "required": false,
+          "interview_prompt": "Vindt Mees bewegen op muziek leuk?",
+          "examples": [
+            "danst graag",
+            "doet bewegingen na",
+            "is wat terughoudend"
+          ]
+        },
+        {
+          "id": "music_own_songs",
+          "label": "Zelf liedjes maken",
+          "render_anchor": "Kan het zelf liedjes maken?",
+          "type": "long_text",
+          "required": false,
+          "interview_prompt": "Maakt Mees zelf liedjes of verzint hij melodietjes?",
+          "examples": [
+            "zingt soms zelfbedachte liedjes",
+            "zingt vooral bekende liedjes",
+            "niet echt"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "motor",
+      "title": "Motorische ontwikkeling",
+      "fields": [
+        {
+          "id": "motor_milestones",
+          "label": "Rollen, kruipen, lopen, fietsen, klimmen",
+          "render_anchor": "Hoe verliep de ontwikkeling in rollen, kruipen, lopen, fietsen (zonder zijwielen), klimmen?",
+          "type": "long_text",
+          "required": true,
+          "interview_prompt": "Hoe verliep de motorische ontwikkeling: rollen, kruipen, lopen, fietsen en klimmen?",
+          "examples": [
+            "liep rond normale leeftijd",
+            "klimt graag",
+            "fietst op loopfiets of fiets met zijwielen"
+          ]
+        },
+        {
+          "id": "motor_crawled",
+          "label": "Heeft gekropen",
+          "render_anchor": "Heeft hij/zij gekropen?",
+          "type": "short_text",
+          "required": false,
+          "interview_prompt": "Heeft Mees gekropen?",
+          "examples": [
+            "ja",
+            "kort",
+            "nee, vooral billenschuiven"
+          ]
+        },
+        {
+          "id": "motor_ball_skills",
+          "label": "Bal vangen, gooien en schoppen",
+          "render_anchor": "Kan uw kind een bal vangen, soepel gooien en gericht schoppen?",
+          "type": "long_text",
+          "required": false,
+          "interview_prompt": "Hoe gaat het met een bal vangen, gooien en gericht schoppen?",
+          "examples": [
+            "schopt graag tegen een bal",
+            "vangen lukt soms",
+            "gooien gaat goed"
+          ]
+        },
+        {
+          "id": "motor_activity_level",
+          "label": "Erg beweeglijk",
+          "render_anchor": "Is uw kind erg beweeglijk?",
+          "type": "long_text",
+          "required": false,
+          "interview_prompt": "Is Mees erg beweeglijk?",
+          "examples": [
+            "heeft veel energie",
+            "kan ook rustig zitten",
+            "zoekt veel beweging"
+          ]
+        },
+        {
+          "id": "motor_fine_motor",
+          "label": "Schaar, potlood en kwast",
+          "render_anchor": "Hoe hanteert uw kind een schaar, potlood, kwast?",
+          "type": "long_text",
+          "required": false,
+          "interview_prompt": "Hoe hanteert Mees een schaar, potlood of kwast?",
+          "examples": [
+            "tekent graag",
+            "houdt potlood nog wisselend vast",
+            "knippen lukt met hulp"
+          ]
+        },
+        {
+          "id": "motor_mrt",
+          "label": "MRT",
+          "render_anchor": "Gaat uw kind naar MRT (motorisch remedial teaching)?",
+          "type": "short_text",
+          "required": false,
+          "interview_prompt": "Gaat Mees naar MRT, motorisch remedial teaching?",
+          "examples": [
+            "nee",
+            "ja",
+            "niet van toepassing"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "family_context",
+      "title": "Familie en overdracht",
+      "fields": [
+        {
+          "id": "family_dyslexia",
+          "label": "Dyslexie in de familie",
+          "render_anchor": "Komt dyslexie voor in de familie?",
+          "type": "short_text",
+          "required": false,
+          "interview_prompt": "Komt dyslexie voor in de familie?",
+          "examples": [
+            "nee",
+            "ja, bij ouder/familielid",
+            "onbekend"
+          ]
+        },
+        {
+          "id": "family_dyscalculia",
+          "label": "Dyscalculie in de familie",
+          "render_anchor": "Komt dyscalculie voor in de familie?",
+          "type": "short_text",
+          "required": false,
+          "interview_prompt": "Komt dyscalculie voor in de familie?",
+          "examples": [
+            "nee",
+            "ja",
+            "onbekend"
+          ]
+        },
+        {
+          "id": "family_giftedness",
+          "label": "Hoogbegaafdheid in de familie",
+          "render_anchor": "Komt hoogbegaafdheid voor in de familie?",
+          "type": "short_text",
+          "required": false,
+          "interview_prompt": "Komt hoogbegaafdheid voor in de familie?",
+          "examples": [
+            "nee",
+            "ja",
+            "onbekend"
+          ]
+        },
+        {
+          "id": "transfer_preschool_daycare",
+          "label": "Overdrachtsgegevens vanuit peuterspeelzaal of kinderdagverblijf",
+          "render_anchor": "Zijn er overdrachtsgegevens vanuit de peuterspeelzaal of kinderdagverblijf?",
+          "type": "long_text",
+          "required": false,
+          "interview_prompt": "Zijn er overdrachtsgegevens vanuit peuterspeelzaal of kinderdagverblijf?",
+          "examples": [
+            "ja, via de opvang",
+            "nee",
+            "nog navragen"
+          ]
+        },
+        {
+          "id": "final_notes",
+          "label": "Verdere opmerkingen of aanvullingen",
+          "render_anchor": "Verdere opmerkingen of aanvullingen:",
+          "type": "long_text",
+          "required": false,
+          "interview_prompt": "Zijn er nog opmerkingen of aanvullingen die de leerkracht moet weten?",
+          "examples": [
+            "geen aanvullingen",
+            "tips voor wennen op school",
+            "dingen die helpen bij spanning of overgangsmomenten"
+          ]
+        },
+        {
+          "id": "filled_in_by",
+          "label": "Ingevuld door",
+          "render_anchor": "Ingevuld door:",
+          "type": "short_text",
+          "required": true,
+          "interview_prompt": "Wie vult het formulier in?",
+          "examples": [
+            "vader",
+            "moeder",
+            "ouders samen"
+          ]
+        }
+      ]
+    }
+  ]
+}

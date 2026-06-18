@@ -1,0 +1,23 @@
+{
+  "name": "vocaform-scaffold",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node src/check.mjs",
+    "check-anchors": "node src/check_docx_anchors.mjs --template \"C:\\Users\\S340\\Downloads\\Kopie van Entreeformulier leeg.docx\" --schema data/mees_entreeformulier.schema.json",
+    "check-session": "node src/check_session.mjs",
+    "demo": "node src/demo.mjs",
+    "import-docx": "node src/import_docx_schema.mjs",
+    "import-google-doc": "node src/import_google_doc_schema.mjs",
+    "import-pdf": "node src/import_pdf_schema.mjs",
+    "import-text": "node src/import_text_schema.mjs",
+    "make-demo-state": "node src/make_demo_state.mjs --out work/demo_state.json",
+    "render-docx": "node src/render_docx.mjs",
+    "seed-mees-profile": "node src/seed_mees_profile.mjs",
+    "serve": "node src/server.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

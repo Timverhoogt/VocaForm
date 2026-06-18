@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">VocaForm logo mark</title>
+  <desc id="desc">A folded document with a speech waveform that resolves into a check mark.</desc>
+  <defs>
+    <linearGradient id="paper" x1="58" x2="186" y1="38" y2="216" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fffdf4"/>
+      <stop offset="1" stop-color="#e7efe9"/>
+    </linearGradient>
+    <linearGradient id="voice" x1="48" x2="211" y1="132" y2="132" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#496f9f"/>
+      <stop offset=".56" stop-color="#236f5a"/>
+      <stop offset="1" stop-color="#ad5f32"/>
+    </linearGradient>
+    <filter id="lift" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="11" flood-color="#182820" flood-opacity=".16"/>
+    </filter>
+  </defs>
+  <rect width="256" height="256" rx="52" fill="#dfeae2"/>
+  <path fill="#236f5a" opacity=".1" d="M33 58c23-27 67-38 109-27 45 12 83 50 86 94 4 50-36 88-87 96-48 8-94-14-111-50-17-35-20-87 3-113Z"/>
+  <g filter="url(#lift)">
+    <path fill="url(#paper)" stroke="#b6c8bd" stroke-width="4" d="M69 31h82l43 45v136c0 9-7 16-16 16H69c-9 0-16-7-16-16V47c0-9 7-16 16-16Z"/>
+    <path fill="#d4e1d9" stroke="#b6c8bd" stroke-linejoin="round" stroke-width="4" d="M150 31v39c0 5 4 9 9 9h35"/>
+    <path fill="none" stroke="#cbd8cf" stroke-linecap="round" stroke-width="8" d="M82 91h56M82 112h82M82 178h72"/>
+    <path fill="none" stroke="url(#voice)" stroke-linecap="round" stroke-linejoin="round" stroke-width="14" d="M47 143h17l11-30 17 62 20-81 20 63 13-28h20l17 22 31-40"/>
+    <path fill="none" stroke="#fffdf4" stroke-linecap="round" stroke-linejoin="round" stroke-width="5" opacity=".82" d="M48 143h15l10-27 17 58 20-77"/>
+  </g>
+</svg>
