@@ -14,7 +14,7 @@
     "import-text": "node src/import_text_schema.mjs",
     "make-demo-state": "node src/make_demo_state.mjs --out work/demo_state.json",
     "render-docx": "node src/render_docx.mjs",
-    "seed-mees-profile": "node src/seed_mees_profile.mjs",
+    "seed-example-profile": "node src/seed_example_profile.mjs",
     "serve": "node src/server.mjs"
   },
   "engines": {

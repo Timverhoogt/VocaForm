@@ -38,16 +38,16 @@ import { slugify } from "./schema_importer.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const publicDir = path.join(root, "public");
-const workDir = path.join(root, "work");
+const workDir = path.resolve(process.env.VOCAFORM_WORK_DIR || path.join(root, "work"));
 const formsDir = path.join(workDir, "forms");
 const outputsDir = path.join(workDir, "exports");
 const activeFormConfigPath = path.join(workDir, "active_form.json");
-const defaultSchemaPath = process.env.FORM_SCHEMA_PATH || path.join(root, "data", "mees_entreeformulier.schema.json");
+const defaultSchemaPath = process.env.FORM_SCHEMA_PATH || path.join(root, "data", "example_entreeformulier.schema.json");
 const exampleProfilePath = path.join(root, "data", "family_profile.example.json");
 const localProfilePath = path.join(workDir, "family_profile.local.json");
 const writableProfilePath = process.env.FAMILY_PROFILE_PATH || localProfilePath;
 const defaultStatePath = process.env.SESSION_STATE_PATH || path.join(workDir, "session_state.json");
-const defaultTemplatePath = process.env.FORM_TEMPLATE_PATH || "C:\\Users\\S340\\Downloads\\Kopie van Entreeformulier leeg.docx";
+const defaultTemplatePath = process.env.FORM_TEMPLATE_PATH || "";
 const host = process.env.HOST || "127.0.0.1";
 const port = Number(process.env.PORT || 5177);
 const openAiRealtimeCallUrl = "https://api.openai.com/v1/realtime/calls";
@@ -110,7 +110,7 @@ function defaultFormConfig() {
     template_path: resolveNullablePath(defaultTemplatePath),
     source_path: resolveNullablePath(defaultTemplatePath),
     source_filename: path.basename(defaultTemplatePath || defaultSchemaPath),
-    source_format: "docx",
+    source_format: defaultTemplatePath ? "docx" : "schema",
     imported_at: null,
     is_default: true
   };

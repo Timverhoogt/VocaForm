@@ -6,38 +6,38 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outPath = path.join(root, "work", "family_profile.local.json");
 
 const profile = {
-  profile_id: "family-mees-local",
+  profile_id: "family-example-local",
   locale: "nl-NL",
   source: {
-    note: "Seeded from the filled top section of the attached school intake DOCX."
+    note: "Generic example profile for local testing. Replace in work/family_profile.local.json with private real data."
   },
   child: {
-    full_name: "Mees Cornelius Jack",
-    preferred_name: "Mees",
-    birthdate: "2022-06-13"
+    full_name: "Example Child",
+    preferred_name: "Example",
+    birthdate: ""
   },
   parents_or_guardians: [
     {
-      full_name: "Tim Verhoogt"
+      full_name: "Example Guardian 1"
     },
     {
-      full_name: "Nonni Verhoogt"
+      full_name: "Example Guardian 2"
     }
   ],
   household: {
-    address: "Mezenhof 126, 1742 GN Schagen"
+    address: "Example Street 1, 1234 AB Example City"
   },
   care: {
     general_practitioner: {
-      name: "Van Steen",
-      phone: "0224-212648"
+      name: "Example GP Practice",
+      phone: "<gp phone>"
     },
     dentist: {
-      name: "Tandartsenpraktijk Waldervaart",
-      phone: "0224-296060"
+      name: "Example Dental Practice",
+      phone: "<dentist phone>"
     },
     after_school_care: {
-      name: "Kappio, locatie de Ark"
+      name: "Example after-school care"
     }
   },
   preferences: {
@@ -49,4 +49,3 @@ const profile = {
 await mkdir(path.dirname(outPath), { recursive: true });
 await writeFile(outPath, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
 console.log(`Wrote local family profile: ${outPath}`);
-

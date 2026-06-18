@@ -30,7 +30,7 @@ function getArg(args, name, positionalIndex, fallback = null) {
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const args = parseArgs(process.argv.slice(2));
-const schemaPath = getArg(args, "--schema", 0, path.join(root, "data", "mees_entreeformulier.schema.json"));
+const schemaPath = getArg(args, "--schema", 0, path.join(root, "data", "example_entreeformulier.schema.json"));
 const statePath = getArg(args, "--state", 1, path.join(root, "work", "session_state.json"));
 const requireFinal = args.flags.has("--require-final");
 

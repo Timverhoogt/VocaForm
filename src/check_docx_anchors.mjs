@@ -33,7 +33,7 @@ const templatePath = getArg("--template")
 const schemaPath = getArg("--schema")
   || process.env.FORM_SCHEMA_PATH
   || activeForm?.schema_path
-  || path.join(root, "data", "mees_entreeformulier.schema.json");
+  || path.join(root, "data", "example_entreeformulier.schema.json");
 
 if (!templatePath || path.extname(templatePath).toLowerCase() !== ".docx" || !existsSync(templatePath)) {
   console.log("Anchor check skipped: no active DOCX template is configured.");

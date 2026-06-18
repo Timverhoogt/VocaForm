@@ -17,7 +17,7 @@ import {
 } from "./prompts.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const schema = await loadJson(path.join(root, "data", "mees_entreeformulier.schema.json"));
+const schema = await loadJson(path.join(root, "data", "example_entreeformulier.schema.json"));
 const profile = await loadJson(path.join(root, "data", "family_profile.example.json"));
 const state = createInitialState(schema, profile);
 const summary = summarizeState(schema, state);

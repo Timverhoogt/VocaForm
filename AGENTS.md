@@ -17,8 +17,8 @@ Use Node.js `>=18`. There is no build step; the app runs directly as ES modules.
 - `npm.cmd run serve` starts the local web app at `http://127.0.0.1:5177`.
 - `npm.cmd run check` validates the active form schema.
 - `npm.cmd run check-anchors` verifies DOCX render anchors against the source template.
-- `npm.cmd run check-session -- data\mees_entreeformulier.schema.json work\session_state.json` reviews a saved session.
-- `npm.cmd run seed-mees-profile` writes the local Mees family profile into `work/`.
+- `npm.cmd run check-session -- data\example_entreeformulier.schema.json work\session_state.json` reviews a saved session.
+- `npm.cmd run seed-example-profile` writes a generic local example profile into `work/`.
 - `npm.cmd run import-docx -- <input.docx> <out.schema.json>` creates a draft schema from a DOCX.
 - `npm.cmd run render-docx -- <template.docx> <schema.json> <state.json> <out.docx> in-place` renders a filled DOCX.
 

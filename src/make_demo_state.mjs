@@ -10,7 +10,7 @@ function getArg(name) {
 }
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const schemaPath = getArg("--schema") || path.join(root, "data", "mees_entreeformulier.schema.json");
+const schemaPath = getArg("--schema") || path.join(root, "data", "example_entreeformulier.schema.json");
 const profilePath = getArg("--profile") || path.join(root, "data", "family_profile.example.json");
 const outPath = getArg("--out");
 

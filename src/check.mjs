@@ -10,7 +10,7 @@ function getArg(name, positionalIndex, fallback = null) {
 }
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const schemaPath = getArg("--schema", 0, path.join(root, "data", "mees_entreeformulier.schema.json"));
+const schemaPath = getArg("--schema", 0, path.join(root, "data", "example_entreeformulier.schema.json"));
 const schema = await loadJson(schemaPath);
 const errors = validateFormSchema(schema);
 
