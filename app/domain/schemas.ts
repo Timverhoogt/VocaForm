@@ -248,6 +248,7 @@ export type AnswerValue = z.infer<typeof answerValueSchema>;
 export type FormDefinition = z.infer<typeof formDefinitionSchema>;
 export type FormField = z.infer<typeof formFieldSchema>;
 export type FormSection = z.infer<typeof formSectionSchema>;
+export type RenderTarget = z.infer<typeof renderTargetSchema>;
 export type FormSession = z.infer<typeof formSessionSchema>;
 export type FormCompilerOutput = z.infer<typeof formCompilerOutputSchema>;
 export type CompilationIssue = z.infer<typeof compilationIssueSchema>;

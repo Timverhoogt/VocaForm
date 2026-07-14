@@ -9,6 +9,16 @@ import type {
 import type { SessionMemoryContext } from "../domain/memory";
 import type { SessionSummary } from "../domain/session";
 
+export type ExportDocumentKind = "filled_docx" | "filled_pdf" | "answer_packet";
+
+export interface DocumentExportPlan {
+  kind: ExportDocumentKind;
+  sourceAvailable: boolean;
+  sourceFileName: string;
+  buttonLabel: string;
+  description: string;
+}
+
 export interface HealthPayload {
   status: "ok";
   version: string;
@@ -34,6 +44,7 @@ export interface SessionView {
   verification: VerificationResult;
   nextField: FormField | null;
   memory: SessionMemoryContext;
+  exportPlan: DocumentExportPlan;
 }
 
 export interface MemoryVaultView {

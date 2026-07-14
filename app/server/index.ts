@@ -3,7 +3,14 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
 import packageJson from "../../package.json" with { type: "json" };
-import { buildDraftDocx, buildVerifiedDocx } from "../adapters/legacy_document_adapter";
+import {
+  buildDocumentExportPlan,
+  DocumentRenderError,
+  renderDraftDocument,
+  renderVerifiedDocument,
+  type RenderedDocument,
+  type SourceDocument
+} from "../adapters/document_renderer";
 import { AnswerValidationError } from "../domain/answers";
 import { evaluateCompilation, toFormDefinition } from "../domain/compiler";
 import {
@@ -44,7 +51,7 @@ import type {
 } from "../shared/api";
 import { getConfig } from "./config";
 import { prepareCompilerDocument } from "./document_upload";
-import { listFixtures, loadFixture } from "./fixtures";
+import { listFixtures, loadFixture, loadFixtureSource } from "./fixtures";
 import { OpenAiFinalVerifier } from "./final_verifier";
 import { OpenAiFormCompiler } from "./form_compiler";
 import { InterviewToolExecutor, interviewToolRequestSchema } from "./interview_tools";
@@ -88,6 +95,8 @@ const verificationResolutionRequestSchema = z.object({
 
 let currentSession: FormSession | null = null;
 let currentCompilation: CompilationResult | null = null;
+let currentCompilationSource: { compilationId: string; document: SourceDocument } | null = null;
+let currentSessionSource: SourceDocument | null = null;
 let formCompiler: OpenAiFormCompiler | null = null;
 let finalVerifier: OpenAiFinalVerifier | null = null;
 let currentSemanticVerification: SemanticVerificationRun | null = null;
@@ -175,8 +184,9 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
           searchableText: document.searchableText
         })
       : null;
+    const compilationId = crypto.randomUUID();
     currentCompilation = {
-      id: crypto.randomUUID(),
+      id: compilationId,
       form,
       documentSummary: modelResult.output.document.summary,
       readiness,
@@ -191,7 +201,16 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
         outputTokens: modelResult.outputTokens
       }
     };
+    currentCompilationSource = {
+      compilationId,
+      document: {
+        fileName: document.fileName,
+        format: document.format === "fixture" ? "text" : document.format,
+        bytes: Buffer.from(document.originalBytes)
+      }
+    };
     currentSession = null;
+    currentSessionSource = null;
     currentSemanticVerification = null;
     sendJson(response, 201, currentCompilation);
     return;
@@ -206,6 +225,9 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
       throw new HttpError(422, "Resolve the readiness blockers before starting the interview.");
     }
     currentSession = createFormSession(currentCompilation.form);
+    currentSessionSource = currentCompilationSource?.compilationId === currentCompilation.id
+      ? currentCompilationSource.document
+      : null;
     currentSemanticVerification = null;
     interviewToolExecutor.reset();
     sendJson(response, 201, buildSessionView(currentSession));
@@ -223,8 +245,14 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
 
   if (method === "POST" && url.pathname === "/api/session/fixture") {
     const body = fixtureRequestSchema.parse(await readJsonBody(request));
-    currentSession = createFormSession(await loadFixture(body.fixtureId));
+    const [form, source] = await Promise.all([
+      loadFixture(body.fixtureId),
+      loadFixtureSource(body.fixtureId)
+    ]);
+    currentSession = createFormSession(form);
+    currentSessionSource = source;
     currentCompilation = null;
+    currentCompilationSource = null;
     currentSemanticVerification = null;
     interviewToolExecutor.reset();
     sendJson(response, 201, buildSessionView(currentSession));
@@ -437,6 +465,7 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
 
   if (method === "DELETE" && url.pathname === "/api/session") {
     currentSession = null;
+    currentSessionSource = null;
     currentSemanticVerification = null;
     interviewToolExecutor.reset();
     response.writeHead(204, { "Cache-Control": "no-store" });
@@ -446,6 +475,7 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
 
   if (method === "DELETE" && url.pathname === "/api/compilation") {
     currentCompilation = null;
+    currentCompilationSource = null;
     response.writeHead(204, { "Cache-Control": "no-store" });
     response.end();
     return;
@@ -453,15 +483,7 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
 
   if (method === "POST" && url.pathname === "/api/export/draft") {
     const session = requireCurrentSession();
-    const report = await buildDraftDocx(session);
-    const filename = `${safeFileName(session.form.id)}-draft.docx`;
-    response.writeHead(200, {
-      "Cache-Control": "no-store",
-      "Content-Disposition": `attachment; filename="${filename}"`,
-      "Content-Length": report.length,
-      "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    });
-    response.end(report);
+    sendDocument(response, renderDraftDocument(session));
     return;
   }
 
@@ -475,15 +497,7 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
     if (!verification.readyForFinalExport) {
       throw new HttpError(422, "Resolve every blocking finding and run final verification before exporting.");
     }
-    const report = await buildVerifiedDocx(session);
-    const filename = `${safeFileName(session.form.id)}-verified.docx`;
-    response.writeHead(200, {
-      "Cache-Control": "no-store",
-      "Content-Disposition": `attachment; filename="${filename}"`,
-      "Content-Length": report.length,
-      "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    });
-    response.end(report);
+    sendDocument(response, await renderVerifiedDocument(session, currentSessionSource));
     return;
   }
 
@@ -505,7 +519,8 @@ function buildSessionView(session: FormSession): SessionView {
       semanticRun: currentSemanticVerification
     }),
     nextField: nextOpenField(session),
-    memory: buildSessionMemoryContext(currentMemoryVault, session)
+    memory: buildSessionMemoryContext(currentMemoryVault, session),
+    exportPlan: buildDocumentExportPlan(session, currentSessionSource)
   };
 }
 
@@ -597,6 +612,9 @@ function normalizeHttpError(error: unknown): { status: number; message: string; 
   if (error instanceof AnswerValidationError || error instanceof VerificationValidationError) {
     return { status: 422, message: error.message, logMessage: error.message };
   }
+  if (error instanceof DocumentRenderError) {
+    return { status: 422, message: error.message, logMessage: error.message };
+  }
   const message = error instanceof Error ? error.message : "Unexpected server error.";
   return { status: 500, message: "VocaForm encountered an unexpected server error.", logMessage: message };
 }
@@ -607,6 +625,20 @@ function sendJson(response: ServerResponse, status: number, body: unknown): void
     "Content-Type": "application/json; charset=utf-8"
   });
   response.end(JSON.stringify(body));
+}
+
+function sendDocument(response: ServerResponse, document: RenderedDocument): void {
+  response.writeHead(200, {
+    "Cache-Control": "no-store",
+    "Content-Disposition": `attachment; filename="${document.fileName}"`,
+    "Content-Length": document.bytes.length,
+    "Content-Type": document.contentType,
+    "X-VocaForm-Render-Kind": document.kind,
+    "X-VocaForm-Render-Coverage": String(document.report.coveragePercent),
+    "X-VocaForm-Render-Fallbacks": String(document.report.fallbackCount),
+    "X-VocaForm-Source-Preserved": String(document.report.sourcePreserved)
+  });
+  response.end(document.bytes);
 }
 
 async function serveClient(pathname: string, response: ServerResponse): Promise<void> {
@@ -647,8 +679,4 @@ function contentType(filePath: string): string {
     ".png": "image/png",
     ".webp": "image/webp"
   } as Record<string, string>)[extension] || "application/octet-stream";
-}
-
-function safeFileName(value: string): string {
-  return value.replace(/[^a-z0-9_-]+/gi, "-").replace(/^-+|-+$/g, "") || "vocaform";
 }

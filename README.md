@@ -6,22 +6,22 @@ This repository is being rebuilt for OpenAI Build Week on the `codex/build-week-
 
 ## Current vertical slice
 
-Goals 1–5 provide the trustworthy foundation, AI form compiler, live voice interview, user-owned memory, and guarded final verification:
+Goals 1–6 provide the trustworthy foundation, AI form compiler, live voice interview, user-owned memory, guarded final verification, and useful completed documents:
 
 - a React/Vite experience organized around **Understand → Talk → Review**;
 - canonical TypeScript and Zod contracts for forms, answers, sessions, memory, and verification;
 - deterministic session progress and required-field validation;
 - a small TypeScript HTTP API with optimistic session-version checks;
 - fixture-driven tests;
-- adapters around the proven DOCX report and legacy review code;
-- draft DOCX export from the new application;
+- adapters around the proven DOCX package, anchor matching, report, and legacy review code;
+- polished draft answer packets plus format-aware verified export from the new application;
 - PDF, DOCX, TXT, and Markdown upload through the server;
 - explicit `gpt-5.6-sol` compilation through the Responses API;
 - strict Zod-derived Structured Outputs for fields, dependencies, validation, evidence, memory candidates, and render targets;
-- high-detail PDF inputs and a retained DOCX plus visual PDF companion;
+- high-detail PDF inputs, a retained DOCX plus visual PDF companion, and an exact AcroForm field inventory;
 - a human-readable readiness check that blocks unsupported evidence and unsafe schemas;
 - three synthetic golden-form evaluations for recall, requiredness, dependencies, and fabrication;
-- a two-pass live Sol result of 104/104 expected field instances, 50/50 required instances, zero fabricated fields, and zero missing dependencies.
+- a recorded two-pass live Sol result of 104/104 expected field instances against the then-current 52-field baseline, 50/50 required instances, zero fabricated fields, and zero missing dependencies; the current 53-field set must be replayed before submission;
 - a browser WebRTC conversation through the unified Realtime endpoint, with the API key kept on the server;
 - eight Realtime function tools for context, atomic answer saves, unknown/skip handling, explicit memory checks, remember/apply consent, remaining questions, and safe completion;
 - exact voice provenance, canonical value validation, optimistic session versions, and idempotent tool-call retries;
@@ -36,11 +36,14 @@ Goals 1–5 provide the trustworthy foundation, AI form compiler, live voice int
 - deterministic final checks for required answers, canonical types and constraints, dependencies, renderer readiness, confidence, and provenance;
 - a non-mutating `gpt-5.6-sol` verifier for contradictions, ambiguous answers, and unsupported normalized claims;
 - inline confirm, correct, answer, and intentionally-leave-blank actions with explicit user-correction provenance;
-- separate draft and verified DOCX routes, with verified export locked until a current semantic pass has no unresolved blocker;
+- separate draft and verified export routes, with final export locked until a current semantic pass has no unresolved blocker;
 - five seeded deterministic verifier cases at 100% recall and 100% final-export gating;
-- a live standard/high versus Pro comparison in which both modes caught 3/3 semantic cases with zero extras, so the faster, lower-token standard mode remains selected.
+- a live standard/high versus Pro comparison in which both modes caught 3/3 semantic cases with zero extras, so the faster, lower-token standard mode remains selected;
+- in-place answer placement into copied DOCX sources and named fields in copied AcroForm PDFs;
+- explicit append fallbacks for individual unmatched targets and a polished, section-matched DOCX answer packet for non-writable sources;
+- exact renderer coverage and source-preservation reports, with 45/45 native demo answers placed and every output page visually inspected.
 
-The included activity-permission and school-intake fixtures are synthetic and reviewed. The school form contains 37 interview questions, including 15 required fields, plus profile fields that can receive individually confirmed memory. Upload remains the primary path; the fixtures provide deterministic offline testing and complete local Goal 4 and Goal 5 demonstrations.
+The included activity-permission, school-intake, and medical-intake fixtures are synthetic and reviewed. The school form contains 37 interview questions, including 15 required fields, plus profile fields that can receive individually confirmed memory. The medical fixture is a fillable PDF with eight named AcroForm fields. Upload remains the primary path; the fixtures provide deterministic offline testing and complete local Goal 4, Goal 5, and Goal 6 demonstrations.
 
 ## OpenAI API configuration
 
@@ -65,7 +68,7 @@ OPENAI_REALTIME_REASONING_EFFORT=low
 OPENAI_REALTIME_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe
 ```
 
-Never commit `.env` or expose the API key to browser code. The server reports only whether a key is configured. Uploaded bytes are held only for the request; compiler and verifier responses use `store: false`. The reviewed sample remains available without a key so deterministic domain and document paths can be tested independently. Without a key, draft export stays available and verified export remains explicitly unavailable.
+Never commit `.env` or expose the API key to browser code. The server reports only whether a key is configured. Uploaded source bytes are copied into process memory only for the active compilation and session so the renderer can preserve the original; they are never returned through the JSON API or written to the repository. Compiler and verifier responses use `store: false`. The reviewed samples remain available without a key so deterministic domain and document paths can be tested independently. Without a key, draft export stays available and verified export remains explicitly unavailable.
 
 DOCX visual compilation uses LibreOffice in headless mode. If `soffice` is not on `PATH`, set `SOFFICE_BIN` to its absolute path.
 
@@ -119,6 +122,7 @@ It runs:
 - Vitest fixture and legacy-adapter tests;
 - compiler golden-form evaluation;
 - deterministic final-verifier evaluation and export-gate checks;
+- deterministic DOCX, fillable-PDF, and answer-packet rendering evaluation;
 - the original schema validator;
 - syntax checks for the legacy server and browser application.
 
@@ -132,12 +136,19 @@ npm run test:visual
 npm run build
 npm run eval:compiler
 npm run eval:verifier
+npm run eval:renderer
 npm run check:legacy
+```
+
+To write the synthetic school DOCX and medical AcroForm PDF sources into ignored local storage for manual testing:
+
+```bash
+npm run fixtures:rendering
 ```
 
 ## Visual browser testing
 
-Playwright covers the complete Goal 4 memory journey and Goal 5 verification correction flow in Chromium at desktop and Pixel 7 viewports. The suite verifies explicit memory consent, correction, forgetting, keyboard focus, traceable reused answers, final-export gating, inline blocker resolution, correction provenance, and mobile overflow. Each checkpoint is compared with committed baselines beside its `*.visual.spec.ts` file.
+Playwright covers the complete Goal 4 memory journey, Goal 5 verification correction flow, and Goal 6 output-format messaging in Chromium at desktop and Pixel 7 viewports. The suite verifies explicit memory consent, correction, forgetting, keyboard focus, traceable reused answers, final-export gating, inline blocker resolution, correction provenance, format-aware downloads, and mobile overflow. Each checkpoint is compared with committed baselines beside its `*.visual.spec.ts` file.
 
 Install the browser once, then run the visual suite:
 
@@ -180,10 +191,10 @@ The command runs contradiction, unsupported-claim, and ambiguity cases in both m
 ```text
 app/client/                 Accessible React experience
 app/domain/                 Provider-independent form and session contracts
-app/adapters/               Compatibility boundary around proven document code
+app/adapters/               Verified DOCX/PDF renderers and proven-code adapters
 app/server/                 TypeScript API, fixture registry, and runtime config
 app/shared/                 Serialized API contracts
-app/evals/                  Golden compiler and final-verifier fixtures and metrics
+app/evals/                  Golden compiler, verifier, and renderer fixtures and metrics
 app/e2e/                    Playwright journeys and visual-regression baselines
 src/                        Proven legacy import, state, Realtime, and DOCX modules
 public/                     Legacy browser interface and shared VocaForm mark
@@ -216,14 +227,15 @@ The domain layer does not import browser, server, or OpenAI code. Provider integ
 | `PATCH` | `/api/memory/claims/:id` | Correct an approved remembered value for future forms |
 | `DELETE` | `/api/memory/claims/:id` | Forget a claim and remove it from future suggestions |
 | `DELETE` | `/api/session` | Close the local in-memory session |
-| `POST` | `/api/export/draft` | Generate a draft through the legacy DOCX adapter |
-| `POST` | `/api/export/final` | Generate a verified DOCX only after the current final gate passes |
+| `POST` | `/api/export/draft` | Generate a polished draft DOCX answer packet |
+| `POST` | `/api/export/final` | Fill a copied DOCX/PDF source or generate an explicit answer packet after the current final gate passes |
 
 ## Privacy boundaries
 
 - API keys and real form data must never be committed.
 - The repository contains only synthetic example profiles and form data.
-- Uploaded bytes, compilations, and active sessions stay in process memory.
+- Uploaded source bytes, compilations, and active sessions stay in process memory and are discarded when their associated state is cleared or the server exits.
+- Rendering always works on copied bytes and verifies that the retained source is byte-for-byte unchanged.
 - OpenAI API keys remain server-side.
 - The browser sends its WebRTC offer to VocaForm; only the server authenticates the Realtime call.
 - Spoken writes are accepted only through validated application tools and retain the user's exact wording as provenance.
@@ -255,6 +267,7 @@ The legacy CLI import and rendering commands are also preserved. See [IMPORT_MAT
 - Active sessions are intentionally process-local during Build Week. Realtime reconnects survive a browser transport interruption, but not an API server restart.
 - A text interview remains available when microphone access, WebRTC, or the AI service is unavailable.
 - Compilation-readiness blockers still require a clearer source file; field-level editing of a compiled schema remains deferred.
-- The new export path creates an answer DOCX. In-place DOCX and fillable-PDF adapters are Goal 6.
+- Arbitrary scanned or non-AcroForm PDFs receive a clearly identified DOCX answer packet; pixel-perfect scanned-page overlays remain out of scope.
+- PDF fields that cannot represent an answer safely fall back to the answer packet instead of silently altering or omitting the value.
 
 These limitations are explicit cut points, not hidden product claims.

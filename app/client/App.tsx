@@ -200,7 +200,7 @@ export function App() {
       });
       setView(nextView);
       setNotice(nextView.verification.readyForFinalExport
-        ? "Final verification passed. Your verified answer packet is ready."
+        ? `Final verification passed. ${nextView.exportPlan.description}`
         : verificationNotice(nextView));
     });
   }
@@ -237,7 +237,11 @@ export function App() {
   async function exportVerified() {
     await runAction(async () => {
       await downloadVerified();
-      setNotice("Your verified answer packet is ready.");
+      setNotice(view?.exportPlan.kind === "filled_pdf"
+        ? "Your completed PDF is ready. The uploaded original was not changed."
+        : view?.exportPlan.kind === "filled_docx"
+          ? "Your completed Word document is ready. The uploaded original was not changed."
+          : "Your verified answer packet is ready.");
     });
   }
 
@@ -478,6 +482,7 @@ export function App() {
                           ? "Unavailable"
                           : view.verification.semanticStatus === "error" ? "Retry" : "Verify"}</dd>
                   </div>
+                  <div><dt>Output</dt><dd>{exportKindLabel(view.exportPlan.kind)}</dd></div>
                 </dl>
               </>
             ) : compilation ? (
@@ -933,7 +938,7 @@ function ReviewStage(props: ReviewStageProps) {
             ? `${blockers.length} ${blockers.length === 1 ? "finding needs" : "findings need"} attention before final export. You can still download a clearly marked draft.`
             : semanticUnavailable
               ? "The deterministic checks passed, but Sol verification is unavailable. Draft export remains available."
-              : "The deterministic checks passed. Run final verification before exporting the verified answer packet."}
+              : "The deterministic checks passed. Run final verification before exporting the completed document."}
       </p>
 
       <div className={ready ? "review-banner ready" : blockers.length ? "review-banner attention" : "review-banner verify"}>
@@ -961,6 +966,14 @@ function ReviewStage(props: ReviewStageProps) {
         onResolve={props.onResolve}
         onVerify={props.onVerify}
       />
+
+      <div className="export-plan" aria-label="Completed document format">
+        <div>
+          <strong>{exportKindLabel(view.exportPlan.kind)}</strong>
+          <p>{view.exportPlan.description}</p>
+        </div>
+        <span>{view.exportPlan.sourceAvailable ? "Original preserved" : "Answer packet"}</span>
+      </div>
 
       {answered.length > 0 && (
         <div className="answer-list">
@@ -1014,7 +1027,7 @@ function ReviewStage(props: ReviewStageProps) {
           disabled={busy || !ready}
           onClick={() => void onFinalExport()}
         >
-          Download verified DOCX <span aria-hidden="true">↓</span>
+          {view.exportPlan.buttonLabel} <span aria-hidden="true">↓</span>
         </button>
       </div>
       <button type="button" className="text-button danger" disabled={busy} onClick={() => void onReset()}>Close this form and start over</button>
@@ -1390,6 +1403,14 @@ function verificationStatusLabel(view: SessionView): string {
     findings: "Findings",
     error: "Needs retry"
   } satisfies Record<SessionView["verification"]["semanticStatus"], string>)[view.verification.semanticStatus];
+}
+
+function exportKindLabel(kind: SessionView["exportPlan"]["kind"]): string {
+  return ({
+    filled_docx: "Completed Word document",
+    filled_pdf: "Completed fillable PDF",
+    answer_packet: "Section-matched DOCX answer packet"
+  } satisfies Record<SessionView["exportPlan"]["kind"], string>)[kind];
 }
 
 function semanticCallToAction(view: SessionView, configured: boolean, blockerCount: number): string {

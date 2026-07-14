@@ -1,6 +1,6 @@
 # Import Matrix
 
-This scaffold normalizes every imported form into the same draft schema:
+The preserved legacy CLI normalizes every imported form into the same draft schema:
 
 - `profile_fields`
 - `sections`
@@ -10,7 +10,7 @@ This scaffold normalizes every imported form into the same draft schema:
 
 Every imported schema is a draft. Review section grouping, field wording, required flags, and profile-field mapping before using it for a real interview.
 
-The browser app uses the same importer as the CLI. Upload `.docx`, `.pdf`, `.txt`, `.text`, or `.md` from the sidebar; VocaForm stores the source, generated schema, and session state under `work\forms\<import-id>\`, then activates that form immediately.
+The Build Week application instead uploads `.docx`, `.pdf`, `.txt`, `.text`, or `.md` through the TypeScript API, compiles a canonical schema with source evidence and rendering targets, and retains a private byte copy only for the active compilation and session. The legacy browser app still uses the importers below and stores its local state under `work\forms\<import-id>\`.
 
 ## DOCX
 
@@ -26,7 +26,7 @@ Method: reads `word/document.xml` from the DOCX package, extracts paragraph text
 
 Best use: Word forms and Google Docs exported as DOCX.
 
-Export behavior: renders back into the uploaded DOCX with in-place anchors, with append fallback for unmatched fields.
+Build Week export behavior: places verified answers into a new copy of the source DOCX. Any unmatched `append_answer_packet` field appears in a clearly labeled fallback section; a `manual_review` field blocks export instead of disappearing.
 
 ## Plain Text
 
@@ -42,7 +42,7 @@ Method: splits text into paragraphs/lines, then applies the shared section/quest
 
 Best use: manually exported Google Docs, OCR output, email forms, copied web forms.
 
-Export behavior: exports a generated answers DOCX.
+Build Week export behavior: generates a polished, section-matched DOCX answer packet that references the text source.
 
 ## PDF
 
@@ -65,7 +65,7 @@ Limitations:
 - Encoded/compressed PDFs may need `pdftotext` or manual export.
 - Always review output carefully.
 
-Export behavior: exports a generated answers DOCX because the PDF is not an editable DOCX template.
+Build Week export behavior: fills exact named AcroForm fields in a new PDF. Individual unmatched answers receive a clearly labeled fallback PDF page. A PDF without compatible writable fields receives a polished, section-matched DOCX answer packet that is never presented as a filled original.
 
 ## Google Docs
 

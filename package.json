@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "check": "npm run typecheck && npm run lint && npm run test && npm run eval:compiler && npm run eval:verifier && npm run check:legacy",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run eval:compiler && npm run eval:verifier && npm run eval:renderer && npm run check:legacy",
     "check-anchors": "node src/check_docx_anchors.mjs",
     "check-session": "node src/check_session.mjs",
     "check:legacy": "node src/check.mjs && node --check src/server.mjs && node --check public/app.js && node --check app/server/openai_client.mjs",
@@ -13,8 +13,10 @@
     "dev:e2e": "concurrently --kill-others --names api,web --prefix-colors blue,green \"tsx app/server/index.ts\" \"vite\"",
     "eval:compiler": "tsx app/evals/run_compiler_eval.ts",
     "eval:compiler:live": "tsx app/evals/run_live_compiler_eval.ts",
+    "eval:renderer": "tsx app/evals/run_renderer_eval.ts",
     "eval:verifier": "tsx app/evals/run_verifier_eval.ts",
     "eval:verifier:live": "tsx app/evals/run_live_verifier_eval.ts",
+    "fixtures:rendering": "tsx app/evals/build_rendering_fixtures.ts",
     "demo": "node src/demo.mjs",
     "import-docx": "node src/import_docx_schema.mjs",
     "import-google-doc": "node src/import_google_doc_schema.mjs",
@@ -39,13 +41,14 @@
   },
   "dependencies": {
     "openai": "^6.46.0",
+    "pdf-lib": "^1.17.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@playwright/test": "^1.61.1",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.61.1",
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

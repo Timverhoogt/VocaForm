@@ -40,7 +40,7 @@ Use TypeScript ES modules, two-space indentation, semicolons, and explicit named
 
 ## Testing Guidelines
 
-Vitest is the focused test framework. Run `npm run check` before handing off changes. Run `npm run eval:compiler` after changing compiler schemas, prompts, or normalization. Add fixture tests for domain behavior and adapter parity, and preserve the legacy schema and syntax checks. Run `npm run build` for UI or bundling changes.
+Vitest is the focused test framework. Run `npm run check` before handing off changes. Run `npm run eval:compiler` after changing compiler schemas, prompts, or normalization, and run `npm run eval:renderer` after changing document placement or fallback behavior. Add fixture tests for domain behavior and adapter parity, and preserve the legacy schema and syntax checks. Run `npm run build` for UI or bundling changes.
 
 ## Commit & Pull Request Guidelines
 

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { pathToFileURL } from "node:url";
+import { PDFDocument } from "pdf-lib";
 import { z } from "zod";
 import { readZip } from "../../src/docx_package.mjs";
 import { extractParagraphs } from "../../src/docx_text.mjs";
@@ -34,6 +35,7 @@ export interface PreparedCompilerDocument {
   fileName: string;
   format: FormDefinition["source"]["format"];
   byteLength: number;
+  originalBytes: Buffer;
   searchableText: string | null;
   content: CompilerInputContent[];
   visualStrategy: VisualStrategy;
@@ -71,18 +73,31 @@ async function preparePdf(fileName: string, bytes: Buffer): Promise<PreparedComp
       return null;
     }
   });
+  const pdfFields = await inspectPdfFields(bytes);
 
   return {
     fileName,
     format: "pdf",
     byteLength: bytes.length,
+    originalBytes: Buffer.from(bytes),
     searchableText,
-    content: [{
-      type: "input_file",
-      filename: fileName,
-      file_data: dataUrl("application/pdf", bytes),
-      detail: "high"
-    }],
+    content: [
+      {
+        type: "input_file",
+        filename: fileName,
+        file_data: dataUrl("application/pdf", bytes),
+        detail: "high"
+      },
+      ...(pdfFields.length > 0 ? [{
+        type: "input_text" as const,
+        text: [
+          "BEGIN VERIFIED ACROFORM FIELD INVENTORY",
+          ...pdfFields.map((field) => `${field.name}\t${field.type}`),
+          "END VERIFIED ACROFORM FIELD INVENTORY",
+          "Use a pdf_field render target only when its locator exactly matches a name in this inventory."
+        ].join("\n")
+      }] : [])
+    ],
     visualStrategy: "direct_pdf",
     originalRetained: true
   };
@@ -106,6 +121,7 @@ async function prepareDocx(
     fileName,
     format: "docx",
     byteLength: bytes.length,
+    originalBytes: Buffer.from(bytes),
     searchableText,
     content: [
       {
@@ -133,6 +149,7 @@ function prepareText(fileName: string, bytes: Buffer): PreparedCompilerDocument 
     fileName,
     format: "text",
     byteLength: bytes.length,
+    originalBytes: Buffer.from(bytes),
     searchableText: text,
     content: [{
       type: "input_text",
@@ -141,6 +158,21 @@ function prepareText(fileName: string, bytes: Buffer): PreparedCompilerDocument 
     visualStrategy: "plain_text",
     originalRetained: true
   };
+}
+
+async function inspectPdfFields(bytes: Buffer): Promise<Array<{ name: string; type: string }>> {
+  try {
+    const pdf = await PDFDocument.load(Uint8Array.from(bytes), {
+      ignoreEncryption: false,
+      updateMetadata: false
+    });
+    return pdf.getForm().getFields().map((field) => ({
+      name: field.getName(),
+      type: field.constructor.name
+    }));
+  } catch {
+    return [];
+  }
 }
 
 async function convertDocxToPdf(fileName: string, bytes: Buffer, sofficeBin: string): Promise<Buffer> {

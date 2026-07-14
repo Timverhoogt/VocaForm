@@ -122,7 +122,7 @@ Technological implementation and a coherent product foundation.
 
 **Outcome:** upload a form and receive an evidence-backed, interview-ready schema without manual mapping.
 
-**Status:** Complete — July 14, 2026. The upload pipeline, explicit Sol Responses client, high-detail PDF/DOCX visual input, strict schema, readiness gate, conditional session behavior, deterministic memory-safety guard, and three-form regression suite are complete. The live two-pass evaluation recalled 104/104 field instances and 50/50 required instances, with zero fabricated fields and zero missing dependencies.
+**Status:** Complete — July 14, 2026. The upload pipeline, explicit Sol Responses client, high-detail PDF/DOCX visual input, strict schema, readiness gate, conditional session behavior, deterministic memory-safety guard, and three-form regression suite are complete. The recorded live two-pass evaluation against the then-current 52-field baseline recalled 104/104 field instances and 50/50 required instances, with zero fabricated fields and zero missing dependencies. The current 53-field baseline must be replayed before submission.
 
 ### Work
 
@@ -252,6 +252,8 @@ Technical depth and a credible answer to hallucination and trust concerns.
 ## Goal 6 — Return a genuinely useful completed document
 
 **Outcome:** the result can be sent to the organization that requested the form.
+
+**Status:** Complete — July 14, 2026. Verified export now fills copied DOCX and AcroForm PDF sources, preserves every original byte, and exposes exact placement and fallback coverage. The deterministic renderer evaluation placed 45/45 demo answers in native targets. Missing writable targets receive an explicit in-document fallback, while non-writable PDFs receive a polished section-matched DOCX answer packet. Every generated page was rendered and visually inspected without clipping or overlap.
 
 ### Work
 
@@ -418,7 +420,7 @@ All four criteria are easy to recognize without requiring judges to infer the pr
 
 ## Immediate next action
 
-Begin Goal 6 by hardening verified DOCX rendering and adding the fillable-PDF adapter, while preserving Goal 5's exact-session export gate and explicit fallback behavior.
+Begin Goal 7 with an accessibility audit of the complete upload, interview, review, and format-aware download journey, then close any keyboard, screen-reader, zoom, contrast, or status-announcement gaps.
 
 ## Source references
 

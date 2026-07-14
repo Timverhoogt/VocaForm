@@ -1,9 +1,6 @@
 import type { FormSession } from "../domain/schemas";
+import { buildAnswerPacketDocx } from "./answer_packet_renderer";
 import { toLegacyForm } from "./legacy_form_adapter";
-
-interface LegacyDocxModule {
-  buildReportDocx(schema: object, state: object, options?: { title?: string }): Buffer;
-}
 
 interface LegacyStateModule {
   reviewSession(schema: object, state: object): {
@@ -13,18 +10,17 @@ interface LegacyStateModule {
   };
 }
 
-export async function buildDraftDocx(session: FormSession): Promise<Buffer> {
-  return buildAnswerPacketDocx(session, "VocaForm draft answers");
+export function buildDraftDocx(session: FormSession): Buffer {
+  return buildAnswerPacketDocx(session, {
+    title: "VocaForm draft answers",
+    status: "draft"
+  });
 }
 
-export async function buildVerifiedDocx(session: FormSession): Promise<Buffer> {
-  return buildAnswerPacketDocx(session, "VocaForm verified answer packet");
-}
-
-async function buildAnswerPacketDocx(session: FormSession, title: string): Promise<Buffer> {
-  const legacy = await import("../../src/docx_report.mjs") as LegacyDocxModule;
-  return legacy.buildReportDocx(toLegacyForm(session.form), toLegacyState(session), {
-    title
+export function buildVerifiedDocx(session: FormSession): Buffer {
+  return buildAnswerPacketDocx(session, {
+    title: "VocaForm verified answer packet",
+    status: "verified"
   });
 }
 

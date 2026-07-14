@@ -44,12 +44,10 @@ describe("legacy form adapter", () => {
     expect(verifySession(next).readyForFinalExport).toBe(false);
   });
 
-  it("keeps the proven legacy review and DOCX report path working", async () => {
+  it("keeps the proven legacy review and DOCX adapter path working", async () => {
     const session = createFormSession(await loadFixture());
-    const [review, report] = await Promise.all([
-      reviewWithLegacyState(session),
-      buildDraftDocx(session)
-    ]);
+    const report = buildDraftDocx(session);
+    const review = await reviewWithLegacyState(session);
 
     expect(review.readyForFinalExport).toBe(false);
     expect(review.blockerCount).toBe(15);

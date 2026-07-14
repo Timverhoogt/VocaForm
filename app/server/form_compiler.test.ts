@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AppConfig } from "./config";
+import { buildMedicalPdfRenderingFixture } from "../evals/rendering_fixtures";
 import { prepareCompilerDocument } from "./document_upload";
 import { buildCompilerRequest } from "./form_compiler_request";
 
@@ -52,6 +53,22 @@ describe("OpenAI form compiler request", () => {
       type: "input_file",
       detail: "high",
       filename: "scan.pdf"
+    }));
+  });
+
+  it("retains original bytes privately and supplies verified AcroForm field names", async () => {
+    const source = await buildMedicalPdfRenderingFixture();
+    const document = await prepareCompilerDocument({
+      fileName: "medical-intake.pdf",
+      mimeType: "application/pdf",
+      dataBase64: source.toString("base64")
+    }, config);
+
+    expect(document.originalBytes.equals(source)).toBe(true);
+    expect(document.originalBytes).not.toBe(source);
+    expect(document.content).toContainEqual(expect.objectContaining({
+      type: "input_text",
+      text: expect.stringContaining("patient_name\tPDFTextField") as string
     }));
   });
 

@@ -23,7 +23,7 @@ Interview rules:
 
 Rendering rules:
 - For DOCX, use an exact nearby label or anchor as a docx_anchor when confident.
-- For PDF, use pdf_field only when an actual fillable field name is identifiable.
+- For PDF, use pdf_field only when an actual fillable field name is identifiable. When a verified AcroForm field inventory is supplied, copy its field name exactly as the locator and never invent another name.
 - Always provide an answer_packet target when the original cannot be addressed reliably.
 - Set renderFallback to append_answer_packet unless the field truly requires manual placement.
 
