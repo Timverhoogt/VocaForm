@@ -23,17 +23,32 @@ import { downloadDraft, downloadVerified, requestJson } from "./api";
 import type { RealtimeInterviewState } from "./realtime";
 import { useRealtimeInterview } from "./use_realtime_interview";
 
-type Stage = "understand" | "talk" | "review";
+type Stage = "upload" | "talk" | "review" | "download";
 
 const stageLabels: Record<Stage, string> = {
-  understand: "Understand",
+  upload: "Upload",
   talk: "Talk",
-  review: "Review"
+  review: "Review",
+  download: "Download"
 };
+
+interface ActionOptions {
+  pendingMessage: string;
+  retryLabel?: string;
+}
+
+interface RecoveryAction {
+  label: string;
+  run: () => void | Promise<void>;
+}
+
+type DownloadComplete = "draft" | "final" | null;
 
 export function App() {
   const memoryButtonRef = useRef<HTMLButtonElement>(null);
-  const [stage, setStage] = useState<Stage>("understand");
+  const [stage, setStage] = useState<Stage>("upload");
+  const [stageFocusRequest, setStageFocusRequest] = useState(0);
+  const stageFocusStateRef = useRef<{ stage: Stage; request: number }>({ stage: "upload", request: 0 });
   const [health, setHealth] = useState<HealthPayload | null>(null);
   const [fixtures, setFixtures] = useState<FixtureSummary[]>([]);
   const [view, setView] = useState<SessionView | null>(null);
@@ -42,8 +57,11 @@ export function App() {
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [answer, setAnswer] = useState("");
   const [busy, setBusy] = useState(false);
+  const [busyMessage, setBusyMessage] = useState("Preparing VocaForm…");
   const [notice, setNotice] = useState("Preparing VocaForm…");
   const [error, setError] = useState<string | null>(null);
+  const [recovery, setRecovery] = useState<RecoveryAction | null>(null);
+  const [downloadComplete, setDownloadComplete] = useState<DownloadComplete>(null);
   const realtime = useRealtimeInterview({
     enabled: stage === "talk" && Boolean(view) && Boolean(health?.openai.configured),
     sessionVersion: view?.session.version ?? 0,
@@ -79,12 +97,27 @@ export function App() {
       } catch (initialError) {
         const message = initialError instanceof Error ? initialError.message : "Something went wrong.";
         setError(message);
-        setNotice(message);
+        setRecovery({
+          label: "Reload VocaForm",
+          run: () => window.location.reload()
+        });
       }
     }
 
     void initialize();
   }, []);
+
+  useEffect(() => {
+    const previous = stageFocusStateRef.current;
+    if (previous.stage === stage && previous.request === stageFocusRequest) {
+      return;
+    }
+    stageFocusStateRef.current = { stage, request: stageFocusRequest };
+    const frame = window.requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>("[data-stage-heading]")?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [stage, stageFocusRequest]);
 
   const currentSection = useMemo(() => {
     if (!view?.nextField) return null;
@@ -101,15 +134,22 @@ export function App() {
       });
       setView(session);
       setCompilation(null);
-      setStage("understand");
+      setStage("upload");
+      setDownloadComplete(null);
+      requestStageFocus();
       setNotice("VocaForm found the questions and prepared the conversation.");
+    }, {
+      pendingMessage: "Opening and checking the reviewed form…",
+      retryLabel: "Try opening the form again"
     });
   }
 
   async function compileFile(file: File) {
+    if (file.size > 10 * 1024 * 1024) {
+      showError(new Error("Choose a file smaller than 10 MB."));
+      return;
+    }
     await runAction(async () => {
-      if (file.size > 10 * 1024 * 1024) throw new Error("Choose a file smaller than 10 MB.");
-      setNotice("GPT-5.6 Sol is reading the form and checking every question…");
       const result = await requestJson<CompilationResult>("/api/forms/compile", {
         method: "POST",
         body: JSON.stringify({
@@ -120,10 +160,15 @@ export function App() {
       });
       setView(null);
       setCompilation(result);
-      setStage("understand");
+      setStage("upload");
+      setDownloadComplete(null);
+      requestStageFocus();
       setNotice(result.readiness.ready
         ? "The form is grounded and ready for a conversation."
         : "The form was read, but a few findings need attention.");
+    }, {
+      pendingMessage: "Reading your form and checking every question…",
+      retryLabel: "Try reading the form again"
     });
   }
 
@@ -136,15 +181,26 @@ export function App() {
       });
       setView(session);
       setStage("talk");
+      setDownloadComplete(null);
       setNotice("The conversation is ready.");
+    }, {
+      pendingMessage: "Preparing the first question…",
+      retryLabel: "Try starting the conversation again"
     });
   }
 
   async function discardCompilation() {
     await runAction(async () => {
-      await fetch("/api/compilation", { method: "DELETE" });
+      await requireSuccessfulResponse(
+        await fetch("/api/compilation", { method: "DELETE" }),
+        "This document could not be closed."
+      );
       setCompilation(null);
       setNotice("Choose a form to begin.");
+      requestStageFocus();
+    }, {
+      pendingMessage: "Closing this document…",
+      retryLabel: "Try closing the document again"
     });
   }
 
@@ -162,8 +218,13 @@ export function App() {
       });
       setView(nextView);
       setAnswer("");
+      setDownloadComplete(null);
+      requestStageFocus();
       setNotice(nextView.nextField ? "Answer saved. Here is the next question." : "All questions have been visited.");
       if (!nextView.nextField) setStage("review");
+    }, {
+      pendingMessage: "Saving your answer…",
+      retryLabel: "Try saving your answer again"
     });
   }
 
@@ -179,15 +240,24 @@ export function App() {
       });
       setView(nextView);
       setAnswer("");
+      setDownloadComplete(null);
+      requestStageFocus();
       setNotice("Question marked for review.");
       if (!nextView.nextField) setStage("review");
+    }, {
+      pendingMessage: "Marking this question for review…",
+      retryLabel: "Try marking the question again"
     });
   }
 
   async function exportDraft() {
     await runAction(async () => {
       await downloadDraft();
-      setNotice("Your draft document is ready.");
+      setDownloadComplete("draft");
+      setNotice("Download complete. Your clearly marked draft is ready.");
+    }, {
+      pendingMessage: "Preparing your draft download…",
+      retryLabel: "Try the draft download again"
     });
   }
 
@@ -199,9 +269,13 @@ export function App() {
         body: JSON.stringify({ sessionVersion: view.session.version })
       });
       setView(nextView);
+      setDownloadComplete(null);
       setNotice(nextView.verification.readyForFinalExport
         ? `Final verification passed. ${nextView.exportPlan.description}`
         : verificationNotice(nextView));
+    }, {
+      pendingMessage: "Checking your saved answers without changing them…",
+      retryLabel: "Try the final check again"
     });
   }
 
@@ -226,22 +300,34 @@ export function App() {
         }
       );
       setView(nextView);
+      setDownloadComplete(null);
       setNotice(action === "confirm"
         ? "Confirmed exactly as written."
         : action === "leave_blank"
           ? "Intentionally left blank."
           : "Correction saved with explicit user provenance.");
+    }, {
+      pendingMessage: action === "confirm"
+        ? "Saving your confirmation…"
+        : action === "leave_blank"
+          ? "Saving your choice to leave this blank…"
+          : "Saving your correction…",
+      retryLabel: "Try saving this review choice again"
     });
   }
 
   async function exportVerified() {
     await runAction(async () => {
       await downloadVerified();
+      setDownloadComplete("final");
       setNotice(view?.exportPlan.kind === "filled_pdf"
-        ? "Your completed PDF is ready. The uploaded original was not changed."
+        ? "Download complete. Your completed PDF is ready. The uploaded original was not changed."
         : view?.exportPlan.kind === "filled_docx"
-          ? "Your completed Word document is ready. The uploaded original was not changed."
-          : "Your verified answer packet is ready.");
+          ? "Download complete. Your completed Word document is ready. The uploaded original was not changed."
+          : "Download complete. Your verified answer packet is ready.");
+    }, {
+      pendingMessage: "Preparing your completed document…",
+      retryLabel: "Try the completed download again"
     });
   }
 
@@ -254,6 +340,9 @@ export function App() {
       });
       acceptMemoryMutation(result);
       setNotice("Saved to your Memory Vault with your permission.");
+    }, {
+      pendingMessage: "Saving this approved detail to your Memory Vault…",
+      retryLabel: "Try saving this detail again"
     });
   }
 
@@ -270,6 +359,9 @@ export function App() {
       });
       acceptMemoryMutation(result);
       setNotice(`${suggestion.fieldLabel} confirmed from your Memory Vault.`);
+    }, {
+      pendingMessage: "Applying the detail you approved…",
+      retryLabel: "Try applying this detail again"
     });
   }
 
@@ -281,6 +373,9 @@ export function App() {
       });
       acceptMemoryMutation(result);
       setNotice("Remembered fact corrected. Existing form answers were left unchanged.");
+    }, {
+      pendingMessage: "Saving your Memory Vault correction…",
+      retryLabel: "Try saving the correction again"
     });
   }
 
@@ -291,6 +386,9 @@ export function App() {
       });
       acceptMemoryMutation(result);
       setNotice("Forgotten. This fact will not be suggested on future forms.");
+    }, {
+      pendingMessage: "Removing this approved detail from your Memory Vault…",
+      retryLabel: "Try forgetting this detail again"
     });
   }
 
@@ -306,32 +404,60 @@ export function App() {
 
   async function resetSession() {
     await runAction(async () => {
-      await fetch("/api/session", { method: "DELETE" });
-      await fetch("/api/compilation", { method: "DELETE" });
+      await requireSuccessfulResponse(
+        await fetch("/api/session", { method: "DELETE" }),
+        "This form could not be closed."
+      );
+      await requireSuccessfulResponse(
+        await fetch("/api/compilation", { method: "DELETE" }),
+        "The document check could not be cleared."
+      );
       setView(null);
       setCompilation(null);
-      setStage("understand");
+      setStage("upload");
       setAnswer("");
-      setNotice("Choose a sample form to begin.");
+      setDownloadComplete(null);
+      requestStageFocus();
+      setNotice("Choose a form to begin.");
+    }, {
+      pendingMessage: "Closing this form and clearing the current session…",
+      retryLabel: "Try closing this form again"
     });
   }
 
-  async function runAction(action: () => Promise<void>) {
+  function requestStageFocus() {
+    setStageFocusRequest((request) => request + 1);
+  }
+
+  async function runAction(action: () => Promise<void>, options: ActionOptions) {
     setBusy(true);
+    setBusyMessage(options.pendingMessage);
     setError(null);
+    setRecovery(null);
     try {
       await action();
     } catch (actionError) {
-      showError(actionError);
+      showError(actionError, options.retryLabel
+        ? {
+            label: options.retryLabel,
+            run: () => runAction(action, options)
+          }
+        : null);
     } finally {
       setBusy(false);
     }
   }
 
-  function showError(value: unknown) {
+  function showError(value: unknown, nextRecovery: RecoveryAction | null = null) {
     const message = value instanceof Error ? value.message : "Something went wrong.";
     setError(message);
-    setNotice(message);
+    setRecovery(nextRecovery);
+  }
+
+  function dismissError() {
+    setError(null);
+    setRecovery(null);
+    setNotice("Ready when you are.");
   }
 
   return (
@@ -346,9 +472,16 @@ export function App() {
           </span>
         </a>
         <div className="header-actions">
-          <button ref={memoryButtonRef} type="button" className="memory-button" onClick={() => setMemoryOpen(true)}>
+          <button
+            ref={memoryButtonRef}
+            type="button"
+            className="memory-button"
+            aria-label={`Memory, ${memory?.claims.length ?? 0} remembered facts`}
+            disabled={busy}
+            onClick={() => setMemoryOpen(true)}
+          >
             Memory
-            <span aria-label={`${memory?.claims.length ?? 0} remembered facts`}>{memory?.claims.length ?? 0}</span>
+            <span aria-hidden="true">{memory?.claims.length ?? 0}</span>
           </button>
           <div className="privacy-note">
             <span aria-hidden="true">●</span>
@@ -369,8 +502,8 @@ export function App() {
         />
       )}
 
-      <main id="main-content" className={view || compilation ? "main-content active" : "main-content"}>
-        {!view && !compilation && (
+      <main id="main-content" tabIndex={-1} className={view || compilation ? "main-content active" : "main-content"}>
+        {!view && !compilation ? (
           <section className="hero-copy" aria-labelledby="page-title">
             <p className="eyebrow">A calmer way through everyday forms</p>
             <h1 id="page-title">One form. One conversation. Done.</h1>
@@ -378,12 +511,14 @@ export function App() {
               VocaForm understands the paperwork, asks only what it needs, and prepares a document you can review and share.
             </p>
           </section>
+        ) : (
+          <h1 className="sr-only">VocaForm: {stageLabels[stage]}</h1>
         )}
 
-        <nav className="journey" aria-label="Form progress">
+        <nav className="journey" aria-label="Form steps">
           {(Object.keys(stageLabels) as Stage[]).map((item, index) => {
             const active = stage === item;
-            const enabled = item === "understand" || Boolean(view);
+            const enabled = item === "upload" || Boolean(view);
             return (
               <button
                 key={item}
@@ -401,8 +536,8 @@ export function App() {
         </nav>
 
         <div className="workspace">
-          <section className="experience-card" aria-busy={busy}>
-            {stage === "understand" && (
+          <section className="experience-card" aria-label={`${stageLabels[stage]} step`} aria-busy={busy}>
+            {stage === "upload" && (
               <UnderstandStage
                 busy={busy}
                 compilation={compilation}
@@ -438,21 +573,31 @@ export function App() {
                 openAiConfigured={Boolean(health?.openai.configured)}
                 view={view}
                 onContinue={() => setStage("talk")}
-                onDraftExport={exportDraft}
-                onFinalExport={exportVerified}
+                onDownload={() => setStage("download")}
                 onRemember={rememberAnswer}
                 onReset={resetSession}
                 onResolve={resolveVerificationFinding}
                 onVerify={runFinalVerification}
               />
             )}
+            {stage === "download" && view && (
+              <DownloadStage
+                busy={busy}
+                complete={downloadComplete}
+                view={view}
+                onDraftExport={exportDraft}
+                onFinalExport={exportVerified}
+                onReset={resetSession}
+                onReview={() => setStage("review")}
+              />
+            )}
           </section>
 
-          <aside className="status-card" aria-label="Form status">
-            <p className="status-label">Today’s form</p>
+          <aside className="status-card" aria-labelledby="form-status-title">
+            <h2 id="form-status-title" className="status-label">Today’s form</h2>
             {view ? (
               <>
-                <h2>{view.session.form.title}</h2>
+                <h3>{view.session.form.title}</h3>
                 <p>{view.session.form.source.fileName}</p>
                 <div className="progress-copy">
                   <strong>{view.summary.completionPercent}%</strong>
@@ -465,6 +610,7 @@ export function App() {
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-valuenow={view.summary.completionPercent}
+                  aria-valuetext={`${view.summary.answeredFields} of ${view.summary.totalFields} questions answered`}
                 >
                   <span style={{ width: `${view.summary.completionPercent}%` }} />
                 </div>
@@ -487,7 +633,7 @@ export function App() {
               </>
             ) : compilation ? (
               <>
-                <h2>{compilation.form?.title || "Uploaded document"}</h2>
+                <h3>{compilation.form?.title || "Uploaded document"}</h3>
                 <p>{compilation.form?.source.fileName || "Document check"}</p>
                 <div className="progress-copy">
                   <strong>{compilation.readiness.score}</strong>
@@ -500,6 +646,7 @@ export function App() {
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-valuenow={compilation.readiness.score}
+                  aria-valuetext={`${compilation.readiness.score} out of 100 ready`}
                 >
                   <span style={{ width: `${compilation.readiness.score}%` }} />
                 </div>
@@ -517,14 +664,30 @@ export function App() {
             )}
             <div className="system-state">
               <span className={health?.openai.configured ? "state-dot connected" : "state-dot"} aria-hidden="true" />
-              {health?.openai.configured ? "AI service connected" : "Sample mode ready"}
+              {health?.openai.configured ? "Private upload ready" : "Reviewed samples ready"}
             </div>
           </aside>
         </div>
 
-        <div className={error ? "notice error" : "notice"} role="status" aria-live="polite">
-          {busy ? "Working…" : notice}
-        </div>
+        {error ? (
+          <div className="notice error" role="alert" aria-atomic="true">
+            <div>
+              <strong>Something needs attention.</strong>
+              <span>{error}</span>
+            </div>
+            <div className="notice-actions">
+              {recovery && (
+                <button type="button" onClick={() => void recovery.run()}>{recovery.label}</button>
+              )}
+              <button type="button" onClick={dismissError}>Dismiss</button>
+            </div>
+          </div>
+        ) : (
+          <div className={busy ? "notice busy" : "notice"} role="status" aria-live="polite" aria-atomic="true">
+            <span className="notice-state" aria-hidden="true">{busy ? "…" : "✓"}</span>
+            <span>{busy ? busyMessage : notice}</span>
+          </div>
+        )}
       </main>
 
       <footer>
@@ -578,16 +741,21 @@ function UnderstandStage(props: UnderstandStageProps) {
     return (
       <div className="stage-content understand-empty">
         <div className="stage-icon" aria-hidden="true">01</div>
-        <p className="stage-kicker">Understand the form</p>
-        <h2>Choose the form you want help with.</h2>
+        <p className="stage-kicker">Upload the form</p>
+        <h2 data-stage-heading tabIndex={-1}>Choose the form you want help with.</h2>
         <p className="stage-lead">
-          Upload a PDF, Word document, or text file. GPT-5.6 Sol will find the questions, preserve their source evidence, and prepare a calm conversation.
+          Upload a PDF, Word document, or text file. VocaForm will find the questions, keep them tied to the source, and prepare a calm conversation.
         </p>
-        <label className={openAiConfigured && !busy ? "upload-button" : "upload-button disabled"}>
+        <label
+          className={openAiConfigured && !busy ? "upload-button" : "upload-button disabled"}
+          htmlFor="form-upload"
+        >
           <span>Choose a form</span>
           <span aria-hidden="true">↑</span>
           <input
+            id="form-upload"
             type="file"
+            aria-describedby="form-upload-help"
             accept=".pdf,.docx,.txt,.text,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
             disabled={!openAiConfigured || busy}
             onChange={(event) => {
@@ -597,12 +765,12 @@ function UnderstandStage(props: UnderstandStageProps) {
             }}
           />
         </label>
-        <p className="button-note">
+        <p id="form-upload-help" className="button-note">
           {openAiConfigured
             ? "PDF, DOCX, TXT, or Markdown · maximum 10 MB"
-            : "Add OPENAI_API_KEY on the server to enable private document upload."}
+            : "Private document upload is unavailable right now. You can still use a reviewed sample below."}
         </p>
-        <div className="sample-divider"><span>or explore without an API call</span></div>
+        <div className="sample-divider"><span>or try a reviewed sample</span></div>
         <div className="sample-options" aria-label="Reviewed sample forms">
           {fixtures.map((fixture) => (
             <button
@@ -627,7 +795,7 @@ function UnderstandStage(props: UnderstandStageProps) {
   return (
     <div className="stage-content">
       <p className="stage-kicker">Form understood</p>
-      <h2>{view.session.form.title}</h2>
+      <h2 data-stage-heading tabIndex={-1}>{view.session.form.title}</h2>
       <p className="stage-lead">
         The form is organized into {view.session.form.sections.length} sections. VocaForm found {fields.length} questions and prepared a clear route through them.
       </p>
@@ -673,7 +841,7 @@ function CompilationReadiness({ busy, compilation, onDiscard, onStart }: Compila
   return (
     <div className="stage-content compilation-stage">
       <p className="stage-kicker">Document readiness check</p>
-      <h2>{form?.title || "This document needs another look."}</h2>
+      <h2 data-stage-heading tabIndex={-1}>{form?.title || "This document needs another look."}</h2>
       <p className="stage-lead">{compilation.documentSummary}</p>
 
       <div className={readiness.ready ? "readiness-hero ready" : "readiness-hero attention"}>
@@ -792,7 +960,7 @@ function TalkStage(props: TalkStageProps) {
       <div className="stage-content complete-state">
         <div className="stage-icon success" aria-hidden="true">✓</div>
         <p className="stage-kicker">Conversation complete</p>
-        <h2>You have reached the end of the form.</h2>
+        <h2 data-stage-heading tabIndex={-1}>You have reached the end of the form.</h2>
         <p className="stage-lead">Review the answers and resolve anything that still needs attention.</p>
         <button type="button" className="primary-button" onClick={props.onReview}>Review the form <span aria-hidden="true">→</span></button>
       </div>
@@ -811,32 +979,40 @@ function TalkStage(props: TalkStageProps) {
       )}
       <div className="question-meta">
         <span>{currentSectionTitle}</span>
-        <span>{view.summary.openFields} open</span>
+        <span>{currentField.required ? "Required question" : "Optional question"} · {view.summary.openFields} open</span>
       </div>
       <div className="answer-mode" role="group" aria-label="How to answer">
         <button
           type="button"
           aria-pressed={mode === "voice"}
+          aria-describedby={!voiceAvailable ? "voice-unavailable-help" : undefined}
           disabled={!voiceAvailable}
           onClick={() => selectMode("voice")}
         >
           Voice
         </button>
-        <button type="button" aria-pressed={mode === "type"} onClick={() => selectMode("type")}>
+        <button
+          type="button"
+          aria-pressed={mode === "type"}
+          onClick={() => selectMode("type")}
+        >
           Type
         </button>
       </div>
+      {!voiceAvailable && (
+        <p id="voice-unavailable-help" className="mode-help">Voice is unavailable right now. Typing is ready.</p>
+      )}
 
       {mode === "voice" ? (
-        <div className={`voice-panel state-${props.realtime.state}`}>
+        <div id="voice-answer-panel" className={`voice-panel state-${props.realtime.state}`}>
           <div className="voice-presence" aria-hidden="true">
             <span /><span /><span /><span />
           </div>
           <p className="voice-status" role="status" aria-live="polite">
             {voiceStateLabel(props.realtime.state)}
           </p>
-          <h2>{props.realtime.assistantText || "Ready for a calm conversation?"}</h2>
-          <p className="voice-guidance">
+          <h2 data-stage-heading tabIndex={-1}>{props.realtime.assistantText || "Ready for a calm conversation?"}</h2>
+          <p className="voice-guidance" role={props.realtime.error ? "alert" : undefined}>
             {props.realtime.error || (voiceActive
               ? "Speak naturally. You can pause, correct yourself, or interrupt at any time."
               : "VocaForm will ask one question at a time and save only what you say.")}
@@ -848,21 +1024,25 @@ function TalkStage(props: TalkStageProps) {
             onClick={() => voiceActive ? props.realtime.stop() : void props.realtime.start()}
           >
             <span aria-hidden="true">{voiceActive ? "■" : "●"}</span>
-            {voiceActive ? "End voice conversation" : "Start voice conversation"}
+            {voiceActive
+              ? "End voice conversation"
+              : props.realtime.state === "error" ? "Try voice again" : "Start voice conversation"}
           </button>
           <p className="privacy-copy">Your microphone is used only while this conversation is active.</p>
         </div>
       ) : (
-        <div className="text-answer-panel">
+        <div id="text-answer-panel" className="text-answer-panel">
           <p className="stage-kicker">One question at a time</p>
-          <h2>{currentField.interviewPrompt}</h2>
+          <h2 data-stage-heading tabIndex={-1}>{currentField.interviewPrompt}</h2>
           {currentField.examples.length > 0 && (
-            <p className="question-help">For example: {currentField.examples.slice(0, 2).join(" · ")}</p>
+            <p id="answer-help" className="question-help">For example: {currentField.examples.slice(0, 2).join(" · ")}</p>
           )}
           <form onSubmit={(event) => void props.onSubmit(event)}>
             <label htmlFor="answer">Your answer</label>
             <textarea
               id="answer"
+              aria-describedby={currentField.examples.length > 0 ? "answer-help" : undefined}
+              aria-required={currentField.required}
               value={answer}
               onChange={(event) => props.onAnswerChange(event.target.value)}
               placeholder="Type naturally. You can use your own words."
@@ -881,7 +1061,7 @@ function TalkStage(props: TalkStageProps) {
           </form>
         </div>
       )}
-      <button type="button" className="text-button" onClick={props.onReview}>Review what I have so far</button>
+      <button type="button" className="text-button" disabled={busy} onClick={props.onReview}>Review what I have so far</button>
     </div>
   );
 }
@@ -907,8 +1087,7 @@ interface ReviewStageProps {
   openAiConfigured: boolean;
   view: SessionView;
   onContinue: () => void;
-  onDraftExport: () => Promise<void>;
-  onFinalExport: () => Promise<void>;
+  onDownload: () => void;
   onRemember: (fieldId: string, subject: string) => Promise<void>;
   onReset: () => Promise<void>;
   onResolve: (
@@ -921,7 +1100,7 @@ interface ReviewStageProps {
 }
 
 function ReviewStage(props: ReviewStageProps) {
-  const { busy, view, onContinue, onDraftExport, onFinalExport, onRemember, onReset } = props;
+  const { busy, view, onContinue, onDownload, onRemember, onReset } = props;
   const answered = Object.values(view.session.answers).filter((answer) => answer.status === "answered");
   const blockers = view.verification.issues.filter((issue) => issue.severity === "blocker" && !issue.resolved);
   const ready = view.verification.readyForFinalExport;
@@ -930,14 +1109,14 @@ function ReviewStage(props: ReviewStageProps) {
   return (
     <div className="stage-content review-stage">
       <p className="stage-kicker">Review before sharing</p>
-      <h2>{answered.length === 0 ? "Your draft is ready to begin." : `${answered.length} answers saved.`}</h2>
+      <h2 data-stage-heading tabIndex={-1}>{answered.length === 0 ? "Your draft is ready to begin." : `${answered.length} answers saved.`}</h2>
       <p className="stage-lead">
         {ready
           ? "Every blocking finding is resolved and the final verification passed."
           : blockers.length > 0
             ? `${blockers.length} ${blockers.length === 1 ? "finding needs" : "findings need"} attention before final export. You can still download a clearly marked draft.`
             : semanticUnavailable
-              ? "The deterministic checks passed, but Sol verification is unavailable. Draft export remains available."
+              ? "The automatic meaning check is unavailable. A clearly marked draft remains available."
               : "The deterministic checks passed. Run final verification before exporting the completed document."}
       </p>
 
@@ -954,8 +1133,8 @@ function ReviewStage(props: ReviewStageProps) {
             : blockers.length
               ? "Resolve each blocker here without restarting the interview."
               : semanticUnavailable
-                ? "Configure the server-side OpenAI key to unlock verified export."
-                : "Sol checks contradictions, ambiguity, and unsupported claims without editing the form."}</p>
+                ? "You can continue to Download and save a clearly marked draft."
+                : "The final check looks for contradictions, ambiguity, and unsupported claims without editing the form."}</p>
         </div>
       </div>
 
@@ -966,14 +1145,6 @@ function ReviewStage(props: ReviewStageProps) {
         onResolve={props.onResolve}
         onVerify={props.onVerify}
       />
-
-      <div className="export-plan" aria-label="Completed document format">
-        <div>
-          <strong>{exportKindLabel(view.exportPlan.kind)}</strong>
-          <p>{view.exportPlan.description}</p>
-        </div>
-        <span>{view.exportPlan.sourceAvailable ? "Original preserved" : "Answer packet"}</span>
-      </div>
 
       {answered.length > 0 && (
         <div className="answer-list">
@@ -1018,19 +1189,108 @@ function ReviewStage(props: ReviewStageProps) {
 
       <div className="review-actions">
         <button type="button" className="quiet-button" disabled={busy} onClick={onContinue}>Continue answering</button>
-        <button type="button" className="quiet-button" disabled={busy} onClick={() => void onDraftExport()}>
+        <button
+          type="button"
+          className="primary-button compact"
+          disabled={busy}
+          onClick={onDownload}
+        >
+          Continue to download <span aria-hidden="true">→</span>
+        </button>
+      </div>
+      <button type="button" className="text-button danger" disabled={busy} onClick={() => void onReset()}>Close this form and start over</button>
+    </div>
+  );
+}
+
+interface DownloadStageProps {
+  busy: boolean;
+  complete: DownloadComplete;
+  view: SessionView;
+  onDraftExport: () => Promise<void>;
+  onFinalExport: () => Promise<void>;
+  onReset: () => Promise<void>;
+  onReview: () => void;
+}
+
+function DownloadStage(props: DownloadStageProps) {
+  const { busy, complete, view } = props;
+  const ready = view.verification.readyForFinalExport;
+  const unresolvedBlockers = view.verification.issues.filter((issue) =>
+    issue.severity === "blocker" && !issue.resolved
+  ).length;
+
+  return (
+    <div className="stage-content download-stage">
+      <p className="stage-kicker">Download your document</p>
+      <h2 data-stage-heading tabIndex={-1}>
+        {ready ? "Your completed document is ready." : "Your draft is ready."}
+      </h2>
+      <p className="stage-lead">
+        {ready
+          ? "The final check passed. Download a new completed file; your uploaded original stays unchanged."
+          : "You can download a clearly marked draft now, or return to Review to finish the checks for a completed document."}
+      </p>
+
+      {complete && (
+        <div className="download-complete">
+          <span aria-hidden="true">✓</span>
+          <div>
+            <strong>Download complete</strong>
+            <p>{complete === "final"
+              ? "Your completed document was sent to your browser’s downloads."
+              : "Your clearly marked draft was sent to your browser’s downloads."}</p>
+          </div>
+        </div>
+      )}
+
+      <section className={ready ? "download-option ready" : "download-option waiting"} aria-labelledby="completed-download-title">
+        <div className="download-option-heading">
+          <span aria-hidden="true">{ready ? "✓" : "i"}</span>
+          <div>
+            <h3 id="completed-download-title">{exportKindLabel(view.exportPlan.kind)}</h3>
+            <p>{view.exportPlan.description}</p>
+          </div>
+        </div>
+        <dl>
+          <div>
+            <dt>Original file</dt>
+            <dd>{view.exportPlan.sourceAvailable ? "Preserved unchanged" : "Referenced by the answer packet"}</dd>
+          </div>
+          <div>
+            <dt>Final check</dt>
+            <dd>{ready ? "Passed" : unresolvedBlockers > 0 ? `${unresolvedBlockers} to resolve` : "Not available"}</dd>
+          </div>
+        </dl>
+        {!ready && (
+          <p id="final-download-help" className="download-help">
+            {unresolvedBlockers > 0
+              ? "Return to Review and resolve every item marked Needs you."
+              : "The automatic meaning check is unavailable, so completed export remains locked. Draft download still works."}
+          </p>
+        )}
+      </section>
+
+      <div className="review-actions download-actions">
+        <button type="button" className="quiet-button" disabled={busy} onClick={props.onReview}>
+          Back to review
+        </button>
+        <button type="button" className="quiet-button" disabled={busy} onClick={() => void props.onDraftExport()}>
           Download draft DOCX <span aria-hidden="true">↓</span>
         </button>
         <button
           type="button"
           className="primary-button compact"
+          aria-describedby={!ready ? "final-download-help" : undefined}
           disabled={busy || !ready}
-          onClick={() => void onFinalExport()}
+          onClick={() => void props.onFinalExport()}
         >
           {view.exportPlan.buttonLabel} <span aria-hidden="true">↓</span>
         </button>
       </div>
-      <button type="button" className="text-button danger" disabled={busy} onClick={() => void onReset()}>Close this form and start over</button>
+      <button type="button" className="text-button danger" disabled={busy} onClick={() => void props.onReset()}>
+        Close this form and start over
+      </button>
     </div>
   );
 }
@@ -1089,7 +1349,7 @@ function VerificationPanel(props: VerificationPanelProps) {
                 <div className="finding-copy">
                   <div className="finding-meta">
                     <span>{issue.severity === "blocker" ? "Needs you" : "Check"}</span>
-                    <small>{issue.source === "model" ? "Sol verification" : "Deterministic check"}</small>
+                    <small>{issue.source === "model" ? "Automatic meaning check" : "Form rule check"}</small>
                   </div>
                   <strong>{verificationFieldLabel(props.view, issue.fieldId)}</strong>
                   <p>{issue.message}</p>
@@ -1293,6 +1553,7 @@ function MemoryView(props: MemoryViewProps) {
       ref={dialogRef}
       className="memory-overlay"
       aria-labelledby="memory-title"
+      aria-describedby="memory-description"
       onCancel={(event) => {
         event.preventDefault();
         props.onClose();
@@ -1306,7 +1567,7 @@ function MemoryView(props: MemoryViewProps) {
           </div>
           <button ref={closeButtonRef} type="button" className="drawer-close" aria-label="Close memory" onClick={props.onClose}>×</button>
         </header>
-        <p className="memory-drawer-lead">
+        <p id="memory-description" className="memory-drawer-lead">
           These facts were saved only after you approved them. Correct or forget anything here at any time.
         </p>
 
@@ -1367,7 +1628,7 @@ function MemoryView(props: MemoryViewProps) {
             ))}
           </div>
         )}
-        <p className="memory-storage-note">Stored only in this VocaForm work directory. Conversation history is never used as memory.</p>
+        <p className="memory-storage-note">Stored only in this VocaForm workspace. Conversation history is never used as memory.</p>
       </section>
     </dialog>
   );
@@ -1416,10 +1677,10 @@ function exportKindLabel(kind: SessionView["exportPlan"]["kind"]): string {
 function semanticCallToAction(view: SessionView, configured: boolean, blockerCount: number): string {
   if (view.verification.readyForFinalExport) return "Every blocking finding is resolved";
   if (blockerCount > 0) return "Resolve the checks above first";
-  if (!configured || view.verification.semanticStatus === "unavailable") return "Sol verification is unavailable";
-  if (view.verification.semanticStatus === "passed") return "Sol verification passed";
-  if (view.verification.semanticStatus === "findings") return "Sol found details for you to review";
-  if (view.verification.semanticStatus === "error") return "Sol verification needs another try";
+  if (!configured || view.verification.semanticStatus === "unavailable") return "The automatic meaning check is unavailable";
+  if (view.verification.semanticStatus === "passed") return "The automatic meaning check passed";
+  if (view.verification.semanticStatus === "findings") return "The final check found details for you to review";
+  if (view.verification.semanticStatus === "error") return "The automatic meaning check needs another try";
   return "Run the final meaning check";
 }
 
@@ -1431,7 +1692,7 @@ function semanticStatusCopy(view: SessionView, configured: boolean, blockerCount
     return "Final verification starts after every deterministic blocker has an explicit answer or correction.";
   }
   if (!configured || view.verification.semanticStatus === "unavailable") {
-    return "Configure the server-side OpenAI key to check contradictions, ambiguity, and unsupported claims. Draft export remains available.";
+    return "A completed export needs the automatic meaning check. You can still continue to Download and save a clearly marked draft.";
   }
   if (view.verification.semanticStatus === "passed") {
     return "No semantic blockers were found. Your answers were inspected, never rewritten.";
@@ -1442,7 +1703,7 @@ function semanticStatusCopy(view: SessionView, configured: boolean, blockerCount
   if (view.verification.semanticStatus === "error") {
     return "No answers changed. Retry when you are ready; final export stays locked until the check completes.";
   }
-  return "Sol reads the saved answers and their original wording, then reports findings without editing the session.";
+  return "The check reads the saved answers and their original wording, then reports findings without editing the form.";
 }
 
 function verificationNotice(view: SessionView): string {
@@ -1451,7 +1712,7 @@ function verificationNotice(view: SessionView): string {
     return `${blockers.length} ${blockers.length === 1 ? "finding needs" : "findings need"} your attention.`;
   }
   if (view.verification.semanticStatus === "unavailable") {
-    return "Deterministic checks passed, but Sol verification is unavailable.";
+    return "Form rule checks passed, but the automatic meaning check is unavailable.";
   }
   if (view.verification.semanticStatus === "error") {
     return "Final verification did not complete. No answers were changed.";
@@ -1487,4 +1748,10 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
     binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
   }
   return btoa(binary);
+}
+
+async function requireSuccessfulResponse(response: Response, fallbackMessage: string): Promise<void> {
+  if (response.ok) return;
+  const payload = await response.json().catch(() => null) as { error?: string } | null;
+  throw new Error(payload?.error || fallbackMessage);
 }

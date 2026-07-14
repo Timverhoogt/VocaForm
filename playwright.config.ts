@@ -7,7 +7,7 @@ const baseURL = `http://127.0.0.1:${clientPort}`;
 
 export default defineConfig({
   testDir: "./app/e2e",
-  testMatch: "**/*.visual.spec.ts",
+  testMatch: ["**/*.visual.spec.ts", "**/accessibility.spec.ts"],
   outputDir: "work/playwright/results",
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),

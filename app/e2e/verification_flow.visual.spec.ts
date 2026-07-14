@@ -31,12 +31,16 @@ test("Goal 5 blocks final export and resolves findings without restarting", asyn
   await saveCurrentAnswer(page, "No");
 
   await expect(experience.getByRole("heading", { name: "5 answers saved." })).toBeVisible();
+  const continueToDownload = experience.getByRole("button", { name: /Continue to download/ });
+  await continueToDownload.click();
   const verifiedDownload = experience.getByRole("button", { name: /Download verified DOCX/ });
   await expect(verifiedDownload).toBeDisabled();
   await expect(experience.getByRole("button", { name: /Download draft DOCX/ })).toBeEnabled();
+  await expectVisual(page, "download-blocked.png");
+  await experience.getByRole("button", { name: "Back to review" }).click();
   const childFinding = page.locator(".finding-card").filter({ hasText: "Child's full name" });
   await expect(childFinding).toContainText("This required question was skipped.");
-  await expect(childFinding).toContainText("Deterministic check");
+  await expect(childFinding).toContainText("Form rule check");
   const blockedExport = await request.post("/api/export/final");
   expect(blockedExport.status()).toBe(422);
   await expectVisual(page, "verification-blocked.png");
@@ -52,8 +56,10 @@ test("Goal 5 blocks final export and resolves findings without restarting", asyn
   expect((await resolutionResponse).ok()).toBe(true);
 
   await expect(childFinding).toHaveCount(0);
-  await expect(page.locator(".verification-run")).toContainText("Sol verification is unavailable");
+  await expect(page.locator(".verification-run")).toContainText("automatic meaning check is unavailable");
+  await continueToDownload.click();
   await expect(verifiedDownload).toBeDisabled();
+  await experience.getByRole("button", { name: "Back to review" }).click();
   const stillBlockedExport = await request.post("/api/export/final");
   expect(stillBlockedExport.status()).toBe(422);
   const sessionResponse = await request.get("/api/session");
@@ -95,7 +101,7 @@ async function saveCurrentAnswer(page: Page, value: string): Promise<void> {
   );
   await page.getByRole("button", { name: /Save and continue/ }).click();
   expect((await responsePromise).ok()).toBe(true);
-  await expect(page.locator(".notice")).not.toHaveText("Working…");
+  await expect(page.locator(".notice.busy")).toHaveCount(0);
 }
 
 async function skipCurrentAnswer(page: Page): Promise<void> {
@@ -104,7 +110,7 @@ async function skipCurrentAnswer(page: Page): Promise<void> {
   );
   await page.getByRole("button", { name: /answer this later/i }).click();
   expect((await responsePromise).ok()).toBe(true);
-  await expect(page.locator(".notice")).not.toHaveText("Working…");
+  await expect(page.locator(".notice.busy")).toHaveCount(0);
 }
 
 async function expectVisual(page: Page, name: string): Promise<void> {

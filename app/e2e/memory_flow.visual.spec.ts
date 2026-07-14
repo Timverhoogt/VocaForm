@@ -143,7 +143,7 @@ async function openSample(page: Page, title: string): Promise<void> {
   );
   await option.click();
   expect((await responsePromise).ok()).toBe(true);
-  await expect(page.locator(".notice")).not.toHaveText("Working…");
+  await expect(page.locator(".notice.busy")).toHaveCount(0);
 }
 
 async function saveCurrentAnswer(page: Page, value: string, answeredCount: number): Promise<void> {
@@ -156,7 +156,7 @@ async function saveCurrentAnswer(page: Page, value: string, answeredCount: numbe
   await page.getByRole("button", { name: /Save and continue/ }).click();
   expect((await responsePromise).ok()).toBe(true);
   await expect(page.locator(".progress-copy span")).toHaveText(`${answeredCount} of 8 answered`);
-  await expect(page.locator(".notice")).not.toHaveText("Working…");
+  await expect(page.locator(".notice.busy")).toHaveCount(0);
 }
 
 async function skipCurrentAnswer(page: Page): Promise<void> {
@@ -184,7 +184,7 @@ async function expectLocatorVisual(locator: Locator, name: string, mask: Locator
 }
 
 async function settleVisuals(page: Page): Promise<void> {
-  await expect(page.locator(".notice")).not.toHaveText("Working…");
+  await expect(page.locator(".notice.busy")).toHaveCount(0);
   await page.evaluate(async () => {
     await document.fonts.ready;
     await new Promise<void>((resolve) => {

@@ -30,6 +30,7 @@
     "serve:legacy": "node src/server.mjs",
     "start": "tsx app/server/index.ts",
     "test": "vitest run",
+    "test:accessibility": "playwright test app/e2e/accessibility.spec.ts",
     "test:visual": "playwright test",
     "test:visual:headed": "playwright test --headed",
     "test:visual:update": "playwright test --update-snapshots=all",
@@ -47,6 +48,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.61.1",
     "@types/node": "^26.1.1",
