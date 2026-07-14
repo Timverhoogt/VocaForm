@@ -340,6 +340,7 @@ Genuine engineering effort and confidence that the application is real.
   - how GPT-5.6 Sol is used;
   - how Codex accelerated development and where human decisions mattered;
   - setup, sample data, tests, limitations, and privacy boundaries.
+- Add an explicit **Prior work vs. Build Week work** section to the README before submission. Use `cd2b782` as the pre-event baseline and `ca05d21..HEAD` as the Build Week range, distinguish the preserved `src/` and `public/` prototype from the new `app/` rebuild, and preserve the dated commit history as eligibility evidence.
 - Record a narrated video under three minutes:
   - problem and user: 20 seconds;
   - upload and Sol compilation: 35 seconds;
