@@ -1,0 +1,20 @@
+Riverside Family Practice — New Patient Intake
+
+PATIENT DETAILS
+Full legal name (required): ______________________________
+Date of birth (required): ____ / ____ / ______
+Phone number (required): _________________________________
+Email address (optional): ________________________________
+
+VISIT DETAILS
+Reason for today's visit (required):
+________________________________________________________________
+
+List current medications, or write none:
+________________________________________________________________
+
+Do you have any known allergies? Yes / No (required)
+If yes, list the allergies and reactions:
+________________________________________________________________
+
+This is synthetic demonstration paperwork. It contains no real patient data.

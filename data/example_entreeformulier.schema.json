@@ -29,6 +29,16 @@
       "profile_key": "parents_or_guardians"
     },
     {
+      "id": "guardian_phone",
+      "label": "Telefoonnummer ouder/verzorger",
+      "profile_key": "guardian.phone"
+    },
+    {
+      "id": "guardian_email",
+      "label": "E-mailadres ouder/verzorger",
+      "profile_key": "guardian.email"
+    },
+    {
       "id": "address",
       "label": "Adres(sen)",
       "profile_key": "household.address"

@@ -1,23 +1,64 @@
 {
-  "name": "vocaform-scaffold",
-  "version": "0.1.0",
+  "name": "vocaform",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node src/check.mjs",
+    "build": "vite build",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run eval:compiler && npm run eval:verifier && npm run check:legacy",
     "check-anchors": "node src/check_docx_anchors.mjs",
     "check-session": "node src/check_session.mjs",
+    "check:legacy": "node src/check.mjs && node --check src/server.mjs && node --check public/app.js && node --check app/server/openai_client.mjs",
+    "dev": "concurrently --kill-others --names api,web --prefix-colors blue,green \"tsx watch app/server/index.ts\" \"vite\"",
+    "dev:e2e": "concurrently --kill-others --names api,web --prefix-colors blue,green \"tsx app/server/index.ts\" \"vite\"",
+    "eval:compiler": "tsx app/evals/run_compiler_eval.ts",
+    "eval:compiler:live": "tsx app/evals/run_live_compiler_eval.ts",
+    "eval:verifier": "tsx app/evals/run_verifier_eval.ts",
+    "eval:verifier:live": "tsx app/evals/run_live_verifier_eval.ts",
     "demo": "node src/demo.mjs",
     "import-docx": "node src/import_docx_schema.mjs",
     "import-google-doc": "node src/import_google_doc_schema.mjs",
     "import-pdf": "node src/import_pdf_schema.mjs",
     "import-text": "node src/import_text_schema.mjs",
+    "lint": "eslint app playwright.config.ts vite.config.ts",
     "make-demo-state": "node src/make_demo_state.mjs --out work/demo_state.json",
     "render-docx": "node src/render_docx.mjs",
     "seed-example-profile": "node src/seed_example_profile.mjs",
-    "serve": "node src/server.mjs"
+    "serve": "npm run build && npm run start",
+    "serve:legacy": "node src/server.mjs",
+    "start": "tsx app/server/index.ts",
+    "test": "vitest run",
+    "test:visual": "playwright test",
+    "test:visual:headed": "playwright test --headed",
+    "test:visual:update": "playwright test --update-snapshots=all",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
+  },
+  "dependencies": {
+    "openai": "^6.46.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "concurrently": "^10.0.3",
+    "eslint": "^10.7.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.3",
+    "globals": "^17.7.0",
+    "tsx": "^4.23.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.64.0",
+    "vite": "^8.1.4",
+    "vitest": "^4.1.10"
   }
 }

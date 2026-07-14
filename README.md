@@ -1,256 +1,260 @@
-# VocaForm Scaffold
+# VocaForm
 
-Small provider-neutral core for a reusable voice-assisted form filler. The app can import a DOCX, PDF, or text form, convert it into the shared VocaForm schema, interview for the detected fields, and export either back into the uploaded DOCX or into a generated answers DOCX.
+VocaForm turns everyday paperwork into a calm conversation. It understands a form, interviews the user for the information it needs, verifies the answers, and returns a completed document. Reusable facts are remembered only with explicit permission.
 
-The browser UI includes optional OpenAI Realtime WebRTC voice mode for a live, low-latency interview. The reusable core still stays provider-neutral:
+This repository is being rebuilt for OpenAI Build Week on the `codex/build-week-rebuild` branch. The detailed execution contract lives in [BUILD_WEEK_ROADMAP.md](./BUILD_WEEK_ROADMAP.md).
 
-- imported form schema
-- family profile prefill
-- interview state
-- next-question selection
-- OpenRouter structured answer normalization
+## Current vertical slice
 
-## Why OpenRouter Fits Here
+Goals 1–5 provide the trustworthy foundation, AI form compiler, live voice interview, user-owned memory, and guarded final verification:
 
-OpenRouter is useful for the LLM reasoning layer:
+- a React/Vite experience organized around **Understand → Talk → Review**;
+- canonical TypeScript and Zod contracts for forms, answers, sessions, memory, and verification;
+- deterministic session progress and required-field validation;
+- a small TypeScript HTTP API with optimistic session-version checks;
+- fixture-driven tests;
+- adapters around the proven DOCX report and legacy review code;
+- draft DOCX export from the new application;
+- PDF, DOCX, TXT, and Markdown upload through the server;
+- explicit `gpt-5.6-sol` compilation through the Responses API;
+- strict Zod-derived Structured Outputs for fields, dependencies, validation, evidence, memory candidates, and render targets;
+- high-detail PDF inputs and a retained DOCX plus visual PDF companion;
+- a human-readable readiness check that blocks unsupported evidence and unsafe schemas;
+- three synthetic golden-form evaluations for recall, requiredness, dependencies, and fabrication;
+- a two-pass live Sol result of 104/104 expected field instances, 50/50 required instances, zero fabricated fields, and zero missing dependencies.
+- a browser WebRTC conversation through the unified Realtime endpoint, with the API key kept on the server;
+- eight Realtime function tools for context, atomic answer saves, unknown/skip handling, explicit memory checks, remember/apply consent, remaining questions, and safe completion;
+- exact voice provenance, canonical value validation, optimistic session versions, and idempotent tool-call retries;
+- automatic interruption handling plus bounded reconnect recovery from the first unresolved question;
+- visible listening, thinking, speaking, saving, reconnecting, error, and complete states, with an equal keyboard-accessible text path.
+- a typed, application-owned Memory Vault persisted in the ignored local `work/` directory;
+- explicit UI and verbal approval before a claim is stored, with source form, source answer, original wording, consent channel, and confirmation time;
+- safe contact-only remember prompts, while sensitive, medical, identity, consent, support, and long free-form answers are excluded by default;
+- a visible Memory view with remember, correct, and forget controls;
+- per-value confirmation before an approved claim is applied to another form, with the claim ID retained on every reused answer;
+- a deterministic three-fact handoff from the activity-permission sample to the school sample;
+- deterministic final checks for required answers, canonical types and constraints, dependencies, renderer readiness, confidence, and provenance;
+- a non-mutating `gpt-5.6-sol` verifier for contradictions, ambiguous answers, and unsupported normalized claims;
+- inline confirm, correct, answer, and intentionally-leave-blank actions with explicit user-correction provenance;
+- separate draft and verified DOCX routes, with verified export locked until a current semantic pass has no unresolved blocker;
+- five seeded deterministic verifier cases at 100% recall and 100% final-export gating;
+- a live standard/high versus Pro comparison in which both modes caught 3/3 semantic cases with zero extras, so the faster, lower-token standard mode remains selected.
 
-- classify fields
-- normalize spoken answers
-- draft final Dutch prose
-- compare or swap models
+The included activity-permission and school-intake fixtures are synthetic and reviewed. The school form contains 37 interview questions, including 15 required fields, plus profile fields that can receive individually confirmed memory. Upload remains the primary path; the fixtures provide deterministic offline testing and complete local Goal 4 and Goal 5 demonstrations.
 
-OpenRouter also documents request-style STT/TTS and audio-capable chat paths, which can be useful for bounded utterances or generated prompts. VocaForm keeps live speech in a separate adapter. OpenRouter is the right abstraction for model routing, structured outputs, and optional request-style audio, not for browser microphone capture, realtime turn-taking, barge-in, and playback control.
+## OpenAI API configuration
 
-For the lowest-latency voice experience, the included adapter uses OpenAI Realtime when `OPENAI_API_KEY` is set and falls back to browser speech hooks when it is not.
+VocaForm uses the OpenAI API directly. It does not use a ChatGPT or Codex subscription as an application credential.
 
-## Files
+Copy the environment template and set your key locally:
 
-- `data/example_entreeformulier.schema.json` - bundled example schema derived from a school intake form.
-- `data/family_profile.example.json` - placeholder profile shape; put real values in a private local copy.
-- `src/form_state.mjs` - prefill and interview-state helpers.
-- `src/check_session.mjs` - reviews an interview session for final-export readiness.
-- `src/openrouter.mjs` - OpenRouter structured-output call.
-- `src/prompts.mjs` - prompt and JSON schema for answer normalization.
-- `src/form_importers.mjs` - shared DOCX, PDF, and text import functions used by CLI and browser upload.
-- `src/demo.mjs` - local demo; optional live OpenRouter normalization.
-- `src/make_demo_state.mjs` - generates a complete `[DEMO]` answer state for renderer testing.
-- `src/render_docx.mjs` - renders collected answers to a DOCX in append or in-place mode.
-- `src/docx_report.mjs` - creates a generated answers DOCX when the imported source is PDF/text or has no DOCX template.
-- `src/docx_package.mjs` - tiny dependency-free ZIP utility used by the DOCX renderer.
-- `src/docx_text.mjs` - paragraph text and anchor-matching helpers for DOCX files.
-- `src/check_docx_anchors.mjs` - verifies that schema `render_anchor` values match the DOCX.
-- `src/import_docx_schema.mjs` - creates a draft schema from DOCX paragraph text.
-- `src/import_text_schema.mjs` - creates a draft schema from plain text.
-- `src/import_pdf_schema.mjs` - creates a draft schema from PDF text extraction.
-- `src/import_google_doc_schema.mjs` - creates a draft schema from an accessible Google Docs text export.
-- `src/schema_importer.mjs` - shared conservative section/question inference for imported text.
-- `src/seed_example_profile.mjs` - writes a generic local profile for testing.
-- `src/server.mjs` - local browser interview server with text input, browser speech hooks, answer save, and DOCX export.
-- `public/` - browser UI for the local interview loop.
-- `public/assets/vocaform-mark.svg` - VocaForm logo mark.
-- `src/check.mjs` - basic schema sanity checks.
-
-## Codex, ChatGPT Pro, And API Keys
-
-Codex can use built-in OpenAI-powered tools while developing this scaffold, including image generation for brand exploration. The local VocaForm app is a separate runtime, though. It cannot borrow a ChatGPT Plus/Pro or Codex subscription silently for unattended calls.
-
-For the app itself, use an API-backed provider such as OpenRouter or the OpenAI API. Keep runtime keys in environment variables and do not commit them to this scaffold.
-
-## Setup
-
-```powershell
-cd path\to\VocaForm
-node src/check.mjs
-node src/demo.mjs
-npm run check-anchors
+```bash
+cp .env.example .env
 ```
 
-Optional live OpenRouter test:
-
-```powershell
-$env:OPENROUTER_API_KEY = "your_key_here"
-$env:OPENROUTER_MODEL = "~openai/gpt-latest"
-node src/demo.mjs --live "Het kind speelt graag buiten met andere kinderen, maar kijkt bij onbekende volwassenen eerst even af."
+```dotenv
+OPENAI_API_KEY=your-key-here
+OPENAI_MODEL=gpt-5.6-sol
+OPENAI_REASONING_EFFORT=high
+OPENAI_VERIFICATION_MODEL=gpt-5.6-sol
+OPENAI_VERIFICATION_REASONING_MODE=standard
+OPENAI_REALTIME_MODEL=gpt-realtime-2.1
+OPENAI_REALTIME_VOICE=marin
+OPENAI_REALTIME_SPEED=0.95
+OPENAI_REALTIME_REASONING_EFFORT=low
+OPENAI_REALTIME_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe
 ```
 
-The live test only sends the selected field, the sample answer, and a short prompt. It does not send a full family profile.
+Never commit `.env` or expose the API key to browser code. The server reports only whether a key is configured. Uploaded bytes are held only for the request; compiler and verifier responses use `store: false`. The reviewed sample remains available without a key so deterministic domain and document paths can be tested independently. Without a key, draft export stays available and verified export remains explicitly unavailable.
 
-## Run The Local Interview UI
+DOCX visual compilation uses LibreOffice in headless mode. If `soffice` is not on `PATH`, set `SOFFICE_BIN` to its absolute path.
 
-Start the app:
+By default, approved memory is stored at `work/memory_vault.local.json`, which is ignored by Git and written with user-only file permissions. Set `VOCAFORM_WORK_DIR` to place all local Memory Vault state in another private directory. This Build Week local store is not encrypted, so it is not a production store for sensitive personal data.
 
-```powershell
-npm.cmd run serve
+## Run locally
+
+Requirements:
+
+- Node.js 20 or newer
+- npm
+
+Install and start the development servers:
+
+```bash
+npm install
+npm run dev
 ```
 
-Open `http://127.0.0.1:5177`.
+Open `http://127.0.0.1:5173`. Vite serves the client and proxies `/api` requests to the TypeScript API on port `5177`.
 
-Use the `Importeren` control in the sidebar to upload a `.docx`, `.pdf`, `.txt`, `.text`, or `.md` form. Examples that should follow the same path:
+To exercise memory without an API call:
 
-- dentist intake forms
-- doctor or clinic intake forms
-- school intake forms
-- activity, permission, or registration forms
-- copied/OCR text forms
+1. Open the reviewed Community Garden Day permission sample.
+2. Answer the parent or guardian name, phone, and email fields, then choose **Remember** for each in Review or Memory.
+3. Close the form and open the elementary-school sample.
+4. Confirm each of the three Memory Vault suggestions. No value is applied before that confirmation.
+5. Open **Memory** to correct or forget a fact; a forgotten fact will not appear in a new school session.
 
-The uploaded source, generated draft schema, and session state are stored under `work\forms\<import-id>\`. The active form pointer is `work\active_form.json`. Generated exports are written to `work\exports\`.
+To build and serve the production bundle:
 
-Set `VOCAFORM_WORK_DIR` if you want those runtime files somewhere other than the repository `work\` folder.
-
-For DOCX imports, VocaForm keeps the uploaded DOCX as the render template and tries in-place answer placement using imported anchors. For PDF/text imports, VocaForm interviews against the imported schema and exports a generated answers DOCX because there is no editable DOCX template to place answers into.
-
-Optional for the bundled example profile:
-
-```powershell
-npm.cmd run seed-example-profile
+```bash
+npm run build
+npm start
 ```
 
-By default the server binds to localhost only. To make it reachable from another device on the same home network or through Tailscale, set:
+Then open `http://127.0.0.1:5177`.
 
-```powershell
-$env:HOST = "0.0.0.0"
-npm.cmd run serve
+## Quality gate
+
+Run the complete verification suite:
+
+```bash
+npm run check
 ```
 
-Then open the machine's LAN or Tailscale address, for example `http://<your-lan-ip>:5177` or `http://100.x.y.z:5177`. This local app has no login layer, so only expose it on networks you trust.
+It runs:
 
-The browser UI keeps imported sessions in each active form folder under `work\forms\`. The bundled default example still uses `work\session_state.json`. It reads `work\family_profile.local.json` when present, otherwise it falls back to `data\family_profile.example.json`. The profile panel writes back to the local profile path and resets the current interview state so profile-derived fields are recalculated. It uses local answer cleanup when `OPENROUTER_API_KEY` is not set, and uses OpenRouter structured output when the key is available.
+- TypeScript type checking;
+- ESLint with type-aware rules and React hooks checks;
+- Vitest fixture and legacy-adapter tests;
+- compiler golden-form evaluation;
+- deterministic final-verifier evaluation and export-gate checks;
+- the original schema validator;
+- syntax checks for the legacy server and browser application.
 
-Optional OpenAI Realtime voice mode:
+Useful individual commands:
 
-```powershell
-$env:OPENAI_API_KEY = "your_openai_api_key_here"
-$env:OPENAI_REALTIME_MODEL = "gpt-realtime-2"
-$env:OPENAI_REALTIME_VOICE = "marin"
-$env:OPENAI_REALTIME_SPEED = "0.95"
-npm.cmd run serve
+```bash
+npm run typecheck
+npm run lint
+npm run test
+npm run test:visual
+npm run build
+npm run eval:compiler
+npm run eval:verifier
+npm run check:legacy
 ```
 
-With `OPENAI_API_KEY` set, the `Live AI` button starts a WebRTC conversation through the local server endpoint at `/api/realtime/call`. The model is prompted to act as a relaxed Dutch interviewer: one question at a time, short rephrasing, examples when useful, and a short summary before the user clicks `Opslaan`.
+## Visual browser testing
 
-The UI has two interview modes:
+Playwright covers the complete Goal 4 memory journey and Goal 5 verification correction flow in Chromium at desktop and Pixel 7 viewports. The suite verifies explicit memory consent, correction, forgetting, keyboard focus, traceable reused answers, final-export gating, inline blocker resolution, correction provenance, and mobile overflow. Each checkpoint is compared with committed baselines beside its `*.visual.spec.ts` file.
 
-- `Per veld` keeps the original loop: ask or record one field, then save or skip it.
-- `Hele formulier` runs a continuous interview over all open fields. The transcript is collected in the same text box, and `Verwerken` sends the full transcript to `/api/interview/transcript` so OpenRouter can extract answers into the existing session state.
+Install the browser once, then run the visual suite:
 
-Whole-form extraction requires `OPENROUTER_API_KEY`. OpenAI Realtime can conduct and transcribe the interview when `OPENAI_API_KEY` is set, but OpenRouter still handles the transcript-to-fields reasoning pass. Without OpenAI Realtime, browser speech recognition or pasted text can still provide the transcript.
-
-The `Concept` button renders a downloadable draft DOCX. The `Finale DOCX` button is disabled until the review has no blockers. Output filenames are based on the active form id, for example `work\exports\<form-id>_session_draft_inplace.docx` for DOCX-source forms or `work\exports\<form-id>_session_draft_answers.docx` for PDF/text-source forms.
-
-The review panel distinguishes draft export from final readiness. Missing required answers, skipped required fields, and follow-up-needed answers are blockers. Low confidence answers are warnings.
-
-Use `Save` for model/local normalization, `Save text` to accept the text area exactly as written, and `Skip field` to mark the current field as skipped. Review items are clickable and jump to the affected field.
-
-CLI readiness check:
-
-```powershell
-npm run check-session -- data\example_entreeformulier.schema.json work\session_state.json
+```bash
+npx playwright install chromium
+npm run test:visual
 ```
 
-Add `--require-final` to return a non-zero exit code when blockers remain:
+For interactive debugging or an intentional baseline refresh:
 
-```powershell
-npm run check-session -- data\example_entreeformulier.schema.json work\session_state.json --require-final
+```bash
+npm run test:visual:headed
+npm run test:visual:update
 ```
 
-Optional:
+Playwright starts isolated client and API processes on ports `5183` and `5187`, disables OpenAI calls, and stores its private Memory Vault, traces, videos, screenshots, and HTML report under ignored `work/playwright/`. Baselines are platform-specific; review every changed image before committing an update. The visual suite remains separate from `npm run check` so the standard quality gate does not require a downloaded browser binary.
 
-```powershell
-$env:OPENROUTER_API_KEY = "your_key_here"
-$env:OPENROUTER_MODEL = "~openai/gpt-latest"
-$env:FORM_TEMPLATE_PATH = "path\to\school-intake.docx"
-npm run serve
+Before submission, record a live two-pass Sol score against the rendered golden documents:
+
+```bash
+npm run eval:compiler:live -- \
+  --medical /path/to/medical-intake.pdf \
+  --school /path/to/school-intake.docx \
+  --permission /path/to/activity-permission.txt \
+  --repeats 2
 ```
 
-If you set `FORM_SCHEMA_PATH`, `FORM_TEMPLATE_PATH`, or `SESSION_STATE_PATH`, the server runs that fixed configured form and browser imports cannot replace the active form until those variables are removed.
+The live command uses source-evidence identity, the same readiness checks, and the same answer keys as the offline gate. It reports per-run progress and token usage, and fails the process when Goal 2 thresholds are missed.
 
-## Import A DOCX Draft Schema
+To replay the Goal 5 standard/high versus Pro comparison against the synthetic semantic cases:
 
-For a new DOCX form, generate a draft schema first:
-
-```powershell
-npm run import-docx -- `
-  "path\to\school-intake.docx" `
-  work\imported_entreeformulier_draft.schema.json
-
-npm run check -- work\imported_entreeformulier_draft.schema.json
+```bash
+npm run eval:verifier:live
 ```
 
-The importer is intentionally conservative. It extracts paragraph text, infers likely sections and questions, and adds `render_anchor` values. Review the result before using it for a real interview.
+The command runs contradiction, unsupported-claim, and ambiguity cases in both modes; rejects unknown field IDs; verifies that every session remains unchanged; and reports recall, extra findings, latency, and tokens. On July 14, 2026, both modes detected 3/3 cases with zero extras. Standard averaged 8.7 seconds and used 3,078 input plus 783 output tokens; Pro averaged 14.3 seconds and used 17,940 input plus 2,458 output tokens. Because Pro produced no correctness improvement, `standard` remains the default.
 
-## Import Other Formats
+## Architecture
 
-Plain text:
-
-```powershell
-npm run import-text -- `
-  path\to\form.txt `
-  work\imported_text_form.schema.json
+```text
+app/client/                 Accessible React experience
+app/domain/                 Provider-independent form and session contracts
+app/adapters/               Compatibility boundary around proven document code
+app/server/                 TypeScript API, fixture registry, and runtime config
+app/shared/                 Serialized API contracts
+app/evals/                  Golden compiler and final-verifier fixtures and metrics
+app/e2e/                    Playwright journeys and visual-regression baselines
+src/                        Proven legacy import, state, Realtime, and DOCX modules
+public/                     Legacy browser interface and shared VocaForm mark
+data/                       Synthetic reviewed fixture data
 ```
 
-PDF:
+The domain layer does not import browser, server, or OpenAI code. Provider integrations will translate their output into the canonical schemas before application state changes.
 
-```powershell
-npm run import-pdf -- `
-  path\to\form.pdf `
-  work\imported_pdf_form.schema.json
+## Application API
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/health` | Runtime readiness without exposing secrets |
+| `GET` | `/api/fixtures` | Available reviewed sample forms |
+| `POST` | `/api/forms/compile` | Compile an uploaded base64 file with GPT-5.6 Sol |
+| `GET` | `/api/compilation` | Read the current readiness result |
+| `DELETE` | `/api/compilation` | Discard the current compilation |
+| `POST` | `/api/session/fixture` | Start a typed session from a fixture |
+| `POST` | `/api/session/compiled` | Start a session after readiness passes |
+| `GET` | `/api/session` | Read the active session, progress, and verification |
+| `POST` | `/api/session/answer` | Save a text answer with a session-version guard |
+| `POST` | `/api/session/skip` | Mark the current question for later review |
+| `POST` | `/api/session/verify` | Run deterministic checks and, when unblocked, the non-mutating Sol verifier |
+| `POST` | `/api/session/verification/issues/:id/resolve` | Explicitly answer, confirm, correct, or leave blank one active finding |
+| `POST` | `/api/realtime/call` | Exchange a browser WebRTC offer through the server-side unified Realtime endpoint |
+| `POST` | `/api/interview/tool` | Execute a validated, idempotent Realtime interview tool call |
+| `GET` | `/api/memory` | Read approved local claims; proposals are never persisted |
+| `POST` | `/api/memory/remember` | Store one eligible answered contact fact after an explicit UI action |
+| `POST` | `/api/memory/apply` | Apply one approved claim to one form field after confirmation |
+| `PATCH` | `/api/memory/claims/:id` | Correct an approved remembered value for future forms |
+| `DELETE` | `/api/memory/claims/:id` | Forget a claim and remove it from future suggestions |
+| `DELETE` | `/api/session` | Close the local in-memory session |
+| `POST` | `/api/export/draft` | Generate a draft through the legacy DOCX adapter |
+| `POST` | `/api/export/final` | Generate a verified DOCX only after the current final gate passes |
+
+## Privacy boundaries
+
+- API keys and real form data must never be committed.
+- The repository contains only synthetic example profiles and form data.
+- Uploaded bytes, compilations, and active sessions stay in process memory.
+- OpenAI API keys remain server-side.
+- The browser sends its WebRTC offer to VocaForm; only the server authenticates the Realtime call.
+- Spoken writes are accepted only through validated application tools and retain the user's exact wording as provenance.
+- Cancelled or interrupted model responses do not execute pending client-side tool calls.
+- Responses API compilation uses `store: false`.
+- Responses API final verification also uses `store: false` and cannot write application state.
+- Model findings are advisory objects; only a user action can confirm, correct, answer, or intentionally blank a value.
+- Any answer change invalidates the prior semantic pass, and verified export requires a pass for the exact current session version.
+- Application memory is durable local application state, separate from model conversation or reasoning state.
+- Merely answering a field or generating a proposal never writes a memory claim.
+- Medical, financial, identity-document, child-identity, support, consent, and long free-form answers are not remembered by default.
+- Remembered values are suggestions only; each value must be confirmed before it becomes a form answer.
+- Forgetting physically removes the claim from the local vault and future suggestions, while already confirmed answers on the active form are not silently rewritten.
+
+This Build Week project is not represented as production medical software or as satisfying any particular healthcare compliance regime.
+
+## Legacy compatibility
+
+The original local prototype remains available while its proven behavior is wrapped and replaced:
+
+```bash
+npm run serve:legacy
 ```
 
-The PDF importer tries `pdftotext` first when Poppler is installed. If it is not available, it uses a limited built-in literal-text fallback. Scanned PDFs and many encoded PDFs need OCR or manual export to DOCX/text.
+The legacy CLI import and rendering commands are also preserved. See [IMPORT_MATRIX.md](./IMPORT_MATRIX.md) for their current format support and limitations.
 
-Google Docs:
+## Current limitations
 
-```powershell
-npm run import-google-doc -- `
-  "https://docs.google.com/document/d/<doc-id>/edit" `
-  work\imported_google_doc.schema.json
-```
+- Active sessions are intentionally process-local during Build Week. Realtime reconnects survive a browser transport interruption, but not an API server restart.
+- A text interview remains available when microphone access, WebRTC, or the AI service is unavailable.
+- Compilation-readiness blockers still require a clearer source file; field-level editing of a compiled schema remains deferred.
+- The new export path creates an answer DOCX. In-place DOCX and fillable-PDF adapters are Goal 6.
 
-This uses the Google Docs plain-text export URL. Public/export-accessible documents work directly. Private documents need manual export to DOCX/text or an authenticated connector.
-
-## Render A DOCX: Append Mode
-
-The first renderer is append-mode. It keeps the original DOCX intact and appends a structured `Ingevulde antwoorden` section at the end. This is the safest reusable fallback for arbitrary forms before exact per-field placement is mapped.
-
-Generate a complete demo answer state:
-
-```powershell
-npm run make-demo-state
-```
-
-Render against the attached DOCX:
-
-```powershell
-npm run render-docx -- `
-  "path\to\school-intake.docx" `
-  data\example_entreeformulier.schema.json `
-  work\demo_state.json `
-  ..\example_entreeformulier_demo_filled.docx
-```
-
-For a real session, replace `work\demo_state.json` with the interview state produced by the voice/text interview loop.
-
-## Render A DOCX: In-Place Mode
-
-For the example school intake form, the schema includes `render_anchor` metadata copied from the source DOCX questions. Check anchor coverage before using in-place rendering:
-
-```powershell
-npm run check-anchors
-```
-
-Render answers directly below matched questions:
-
-```powershell
-npm run render-docx -- `
-  "path\to\school-intake.docx" `
-  data\example_entreeformulier.schema.json `
-  work\demo_state.json `
-  ..\example_entreeformulier_demo_inplace.docx `
-  in-place
-```
-
-If any answer cannot be anchored, the renderer appends those unmatched answers in a `Niet geplaatste antwoorden` fallback section.
-
-## Next Renderer Upgrade
-
-Generate `render_anchor` candidates automatically during import and require human confirmation when confidence is low.
+These limitations are explicit cut points, not hidden product claims.

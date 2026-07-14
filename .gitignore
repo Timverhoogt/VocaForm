@@ -1,5 +1,7 @@
 # Dependencies and package manager output
 node_modules/
+dist/
+coverage/
 npm-debug.log*
 
 # Local runtime state and private family data
