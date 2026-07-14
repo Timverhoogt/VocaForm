@@ -93,7 +93,7 @@ Quality of the idea and evidence of deliberate product judgment.
 
 **Outcome:** a modular, testable application shell replaces the current prototype structure without breaking proven document logic.
 
-**Status:** Complete — July 14, 2026. The typed domain, legacy adapters, fixture flow, production API, three-stage UI, DOCX export, and complete quality gate are in place on `codex/build-week-rebuild`.
+**Status:** Complete — July 14, 2026. The typed domain, legacy adapters, fixture flow, production API, journey shell, DOCX export, and complete quality gate are in place on `codex/build-week-rebuild`.
 
 ### Work
 
@@ -230,6 +230,8 @@ Potential impact, trust, and genuine understanding of the target audience.
 
 **Status:** Complete — July 14, 2026. Deterministic checks now cover requiredness, canonical values, dependencies, renderer readiness, confidence, and answer provenance. A strict, non-mutating GPT-5.6 Sol pass reports semantic contradictions, ambiguity, and unsupported claims as user-owned actions, while final export remains locked until the exact current session is clear. All five seeded deterministic failures were detected and gated. In the live semantic comparison, standard/high and Pro each detected 3/3 cases with zero extras and no session mutation; Pro offered no correctness gain while using substantially more tokens and latency, so standard/high remains selected.
 
+**Product-testing note:** Requiring the Sol semantic pass for verified export is provisional, not a permanent product decision. Proper user testing must establish whether people find the additional review understandable and valuable, and whether its error prevention outweighs waiting time, false positives, privacy concerns, and extra steps. Deterministic validation remains mandatory; based on user feedback, the Sol review may become optional, default-on but skippable, or required only for selected high-risk forms.
+
 ### Work
 
 - Add deterministic validation for requiredness, type, dependencies, and renderer readiness.
@@ -281,6 +283,8 @@ The concrete payoff: VocaForm finishes the task instead of stopping at a chatbot
 ## Goal 7 — Deliver an accessibility-led product experience
 
 **Outcome:** the interface feels calmer than the paperwork and remains usable without relying on sight or technical knowledge.
+
+**Status:** Complete — July 14, 2026. The product now follows Upload → Talk → Review → Download with plain-language cards and no user-facing model, provider, key, or configuration controls. New stage/question focus management, semantic landmarks, action-specific live announcements, retryable alerts, 44-pixel targets, AA contrast, forced-color support, reduced motion, and 200% text reflow close the audit findings. A role/name-only, keyboard walkthrough completes all eight prepared-form questions and downloads the draft on desktop and mobile; axe reports no serious or critical WCAG A/AA violations across Upload, prepared-form, Talk, Review, Download, and error states. The scripted Realtime tool journey continues to prove voice completion while the UI exposes listening, thinking, speaking, saving, reconnecting, error, and complete states in text.
 
 ### Work
 
@@ -421,7 +425,7 @@ All four criteria are easy to recognize without requiring judges to infer the pr
 
 ## Immediate next action
 
-Begin Goal 7 with an accessibility audit of the complete upload, interview, review, and format-aware download journey, then close any keyboard, screen-reader, zoom, contrast, or status-announcement gaps.
+Begin Goal 8 by unifying the deterministic evaluations, Realtime reconnect scenarios, privacy-safe traces, and repeated clean-environment demo runs into one resilience report.
 
 ## Source references
 

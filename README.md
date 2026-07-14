@@ -6,9 +6,9 @@ This repository is being rebuilt for OpenAI Build Week on the `codex/build-week-
 
 ## Current vertical slice
 
-Goals 1–6 provide the trustworthy foundation, AI form compiler, live voice interview, user-owned memory, guarded final verification, and useful completed documents:
+Goals 1–7 provide the trustworthy foundation, AI form compiler, live voice interview, user-owned memory, guarded final verification, useful completed documents, and an accessibility-led product experience:
 
-- a React/Vite experience organized around **Understand → Talk → Review**;
+- a React/Vite experience organized around **Upload → Talk → Review → Download**;
 - canonical TypeScript and Zod contracts for forms, answers, sessions, memory, and verification;
 - deterministic session progress and required-field validation;
 - a small TypeScript HTTP API with optimistic session-version checks;
@@ -26,7 +26,12 @@ Goals 1–6 provide the trustworthy foundation, AI form compiler, live voice int
 - eight Realtime function tools for context, atomic answer saves, unknown/skip handling, explicit memory checks, remember/apply consent, remaining questions, and safe completion;
 - exact voice provenance, canonical value validation, optimistic session versions, and idempotent tool-call retries;
 - automatic interruption handling plus bounded reconnect recovery from the first unresolved question;
-- visible listening, thinking, speaking, saving, reconnecting, error, and complete states, with an equal keyboard-accessible text path.
+- visible listening, thinking, speaking, saving, reconnecting, error, and complete states, with an equal keyboard-accessible text path;
+- semantic page, navigation, region, complementary, dialog, status, alert, progress, heading, and form-control structure with focus moved to each new stage or question;
+- action-specific live announcements and retryable error cards instead of a generic loading state;
+- user-facing cards and plain-language service messaging with no model, provider, key, or configuration controls in the product journey;
+- at least 44 CSS-pixel action targets, WCAG AA contrast, high-contrast/forced-color support, reduced motion, and reflow without horizontal scrolling at 200% text size;
+- an axe-checked, role/name-driven walkthrough that completes the prepared eight-question form and downloads its draft using only the keyboard on desktop and mobile Chromium;
 - a typed, application-owned Memory Vault persisted in the ignored local `work/` directory;
 - explicit UI and verbal approval before a claim is stored, with source form, source answer, original wording, consent channel, and confirmation time;
 - safe contact-only remember prompts, while sensitive, medical, identity, consent, support, and long free-form answers are excluded by default;
@@ -42,6 +47,8 @@ Goals 1–6 provide the trustworthy foundation, AI form compiler, live voice int
 - in-place answer placement into copied DOCX sources and named fields in copied AcroForm PDFs;
 - explicit append fallbacks for individual unmatched targets and a polished, section-matched DOCX answer packet for non-writable sources;
 - exact renderer coverage and source-preservation reports, with 45/45 native demo answers placed and every output page visually inspected.
+
+The mandatory Sol semantic pass on the verified-export path is provisional. Proper user testing will determine whether this review should remain required, become default-on but skippable, or be offered only as an optional second opinion. Deterministic validation remains mandatory regardless of that decision; user feedback should weigh error prevention against comprehensibility, false positives, waiting time, privacy concerns, and added interaction cost.
 
 The included activity-permission, school-intake, and medical-intake fixtures are synthetic and reviewed. The school form contains 37 interview questions, including 15 required fields, plus profile fields that can receive individually confirmed memory. The medical fixture is a fillable PDF with eight named AcroForm fields. Upload remains the primary path; the fixtures provide deterministic offline testing and complete local Goal 4, Goal 5, and Goal 6 demonstrations.
 
@@ -132,6 +139,7 @@ Useful individual commands:
 npm run typecheck
 npm run lint
 npm run test
+npm run test:accessibility
 npm run test:visual
 npm run build
 npm run eval:compiler
@@ -148,12 +156,13 @@ npm run fixtures:rendering
 
 ## Visual browser testing
 
-Playwright covers the complete Goal 4 memory journey, Goal 5 verification correction flow, and Goal 6 output-format messaging in Chromium at desktop and Pixel 7 viewports. The suite verifies explicit memory consent, correction, forgetting, keyboard focus, traceable reused answers, final-export gating, inline blocker resolution, correction provenance, format-aware downloads, and mobile overflow. Each checkpoint is compared with committed baselines beside its `*.visual.spec.ts` file.
+Playwright covers the complete Goal 4 memory journey, Goal 5 verification correction flow, Goal 6 output-format messaging, and Goal 7 accessibility journey in Chromium at desktop and Pixel 7 viewports. The suite verifies explicit memory consent, correction, forgetting, stage focus, traceable reused answers, final-export gating, inline blocker resolution, correction provenance, format-aware downloads, actionable error recovery, 44-pixel targets, 200% text reflow, and a pointer-free prepared-form interview. Axe scans the Upload, prepared-form, Talk, Review, Download, and error states and rejects serious or critical WCAG A/AA violations. Each visual checkpoint is compared with committed baselines beside its `*.visual.spec.ts` file.
 
 Install the browser once, then run the visual suite:
 
 ```bash
 npx playwright install chromium
+npm run test:accessibility
 npm run test:visual
 ```
 
