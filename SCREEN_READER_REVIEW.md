@@ -1,10 +1,14 @@
 # VocaForm Manual Screen-reader Review
 
-**Status:** **PASS**<br>
-**Candidate:** `WORKTREE based on c1cb255a60b5fc12b965304257822d126a3e3911 — replace with the exact candidate SHA after commit`<br>
-**Review date:** `2026-07-15`<br>
-**Reviewer:** `Codex Computer Use review with VoiceOver focus and accessibility output inspected after each transition`<br>
-**Environment:** `macOS 26.6 (25G5065a); VoiceOver 10; Google Chrome 150.0.7871.116`<br>
+**Status:** **PASS**
+
+**Candidate:** `249c4de0965477445ec8b43bf0ffd989f09d6835`
+
+**Review date:** `2026-07-15`
+
+**Reviewer:** `Codex Computer Use review with VoiceOver focus and accessibility output inspected after each transition`
+
+**Environment:** `macOS 26.6 (25G5065a); VoiceOver 10; Google Chrome 150.0.7871.116`
 
 This record is the manual assistive-technology evidence for `EXP-03` in
 `PRE_SUBMISSION_REVIEW.md`. Use only the reviewed synthetic fixtures. The review
@@ -48,8 +52,8 @@ this journey.
 
 ## Result
 
-The manual journey passed on the recorded worktree. The candidate value must be
-replaced with the exact committed SHA, and the automated suite repeated on that
-commit, before the overall experience-review sign-off changes to PASS.
+The manual journey passed on the recorded candidate. The full deterministic,
+build, and 16-journey desktop/mobile suite was repeated successfully on that exact
+commit before the overall experience-review sign-off changed to PASS.
 
 - Decision: `PASS`

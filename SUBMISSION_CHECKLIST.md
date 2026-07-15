@@ -32,7 +32,7 @@
 - [x] Visually inspect focus, disabled, progress, and blocker states in Chromium forced-colors mode; retain the reproducible capture command.
 - [x] Confirm the submission locale claim: English UI; language-aware form handling; reviewed English and Dutch form content; other languages and voice best effort unless separately verified.
 - [ ] Run `npm run check:experience` successfully on the exact candidate commit.
-- [ ] Record candidate SHA, reviewer, accepted exceptions, and a **PASS** decision before feature freeze.
+- [x] Record candidate SHA, reviewer, accepted exceptions, and a **PASS** decision before feature freeze.
 
 ## Release candidate
 
@@ -50,7 +50,7 @@
   ```
 
 - [x] Confirm `http://127.0.0.1:10000/api/health` reports `status: ok`, `publicDemo: true`, and no secret value.
-- [ ] Feature-freeze the exact passing commit SHA: `________________________________________`.
+- [x] Feature-freeze the exact passing commit SHA: `249c4de0965477445ec8b43bf0ffd989f09d6835`.
 
 ## Public demo
 

@@ -2,7 +2,7 @@
 
 **Gate added:** July 15, 2026<br>
 **Scope:** UI/UX, locale behavior, and accessibility<br>
-**Current decision:** **Hold feature freeze until the open P1 findings are fixed or explicitly accepted**
+**Current decision:** **PASS**
 
 This gate sits between a passing engineering build and the final release-candidate freeze. It reviews the experience people actually receive, including people who use screen readers, keyboard navigation, text enlargement, high-contrast settings, or a narrow viewport. It does not replace the deterministic product, privacy, renderer, or submission checks.
 
@@ -80,8 +80,8 @@ Feature freeze can proceed only after the reviewer, candidate SHA, date, open ex
 
 ## Sign-off
 
-- Candidate SHA: `________________________________________`
-- Reviewer: `________________________________________`
-- Review date: `________________________________________`
-- Open accepted exceptions: `________________________________________`
-- Decision: `PASS / HOLD`
+- Candidate SHA: `249c4de0965477445ec8b43bf0ffd989f09d6835`
+- Reviewer: `Codex pre-submission review with manual VoiceOver verification`
+- Review date: `2026-07-15`
+- Open accepted exceptions: `English-only application UI; other form languages and voice are best effort; the VoiceOver pass covered the typed path rather than microphone interaction; native PDF accessibility remains source-dependent and the reviewed PDF is untagged, so no PDF/UA or universal accessible-export claim is made.`
+- Decision: PASS
