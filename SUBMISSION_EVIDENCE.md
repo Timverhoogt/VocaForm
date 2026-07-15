@@ -45,6 +45,8 @@ The submission command covers:
 
 The experience package also includes a reproducible five-state forced-colors capture and an export accessibility audit. The export review records clean full-page renders, real DOCX headings and language metadata, human-readable PDF field labels, and the accepted limitation that the native medical PDF remains untagged.
 
+The pre-submission experience review passed for candidate `249c4de0965477445ec8b43bf0ffd989f09d6835`. A manual VoiceOver 10 journey in Chrome 150 on macOS 26.6 covered the typed Upload → Talk → Review → Download path, empty/populated/reuse Memory states, an announced recoverable error, a required-field blocker and correction, final verification, and both locked and ready Download states. It found ambiguous repeated action names and focus loss after disappearing controls; those defects were fixed, manually retested, and added to the browser assertions. `npm run check:experience` verifies the exact candidate ancestry, a clean worktree, metadata-only post-candidate changes, completed manual evidence, resolved P1 findings, accepted exceptions, and the explicit PASS.
+
 The detailed five-pass evidence and loading/recovery matrix are in `RESILIENCE_REPORT.md`. Renderer source preservation and fallback behavior are exercised by `npm run eval:renderer`.
 
 The release container was also built and smoke-tested locally on July 15. It served a healthy public-demo response, ran as the unprivileged `node` user, found LibreOffice at `/usr/bin/soffice`, and contained no `.env` file. The smoke run intentionally omitted an API key and confirmed that the health response exposed only `configured: false`, never a credential.
