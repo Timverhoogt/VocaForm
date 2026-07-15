@@ -4,6 +4,7 @@ import {
   type FormDefinition,
   type FormField
 } from "../domain/schemas";
+import { normalizeLocale } from "../domain/locale";
 
 const legacyProfileFieldSchema = z.object({
   id: z.string(),
@@ -45,7 +46,7 @@ export function fromLegacyForm(input: unknown): FormDefinition {
     id: legacy.form_id,
     version: legacy.version,
     title: legacy.title,
-    locale: legacy.language,
+    locale: normalizeLocale(legacy.language),
     source: {
       fileName: legacy.source.filename,
       format: normalizeSourceFormat(legacy.source.format)

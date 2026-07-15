@@ -45,14 +45,23 @@ test("Goal 5 blocks final export and resolves findings without restarting", asyn
   expect(blockedExport.status()).toBe(422);
   await expectVisual(page, "verification-blocked.png");
 
-  await childFinding.getByRole("button", { name: "Answer now" }).click();
-  await childFinding.getByRole("textbox", { name: "Your answer" }).fill("Mila Hart");
+  await childFinding.getByRole("button", {
+    name: "Answer now for Child's full name",
+    exact: true
+  }).click();
+  await childFinding.getByRole("textbox", {
+    name: "Your answer for Child's full name",
+    exact: true
+  }).fill("Mila Hart");
   const resolutionResponse = page.waitForResponse((response) =>
     response.url().includes("/api/session/verification/issues/")
       && response.url().endsWith("/resolve")
       && response.request().method() === "POST"
   );
-  await childFinding.getByRole("button", { name: "Save explicitly" }).click();
+  await childFinding.getByRole("button", {
+    name: "Save answer for Child's full name",
+    exact: true
+  }).click();
   expect((await resolutionResponse).ok()).toBe(true);
 
   await expect(childFinding).toHaveCount(0);
@@ -115,6 +124,8 @@ async function skipCurrentAnswer(page: Page): Promise<void> {
 
 async function expectVisual(page: Page, name: string): Promise<void> {
   await page.evaluate(async () => {
+    document.documentElement.style.scrollBehavior = "auto";
+    window.scrollTo(0, 0);
     await document.fonts.ready;
     await new Promise<void>((resolve) => {
       window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));

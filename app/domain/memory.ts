@@ -39,6 +39,7 @@ export interface MemorySuggestion {
   value: AnswerValue;
   originalWording: string;
   sourceFormTitle: string;
+  sourceFormLocale: string | null;
   confirmedAt: string;
 }
 
@@ -96,6 +97,7 @@ export function buildSessionMemoryContext(
         value: claim.value,
         originalWording: claim.originalWording,
         sourceFormTitle: claim.sourceFormTitle || claim.sourceFormId,
+        sourceFormLocale: claim.sourceFormLocale,
         confirmedAt: claim.confirmedAt as string
       }));
   });
@@ -184,6 +186,7 @@ export function rememberSessionAnswer(
     sourceFormId: session.form.id,
     sourceFieldId: field.id,
     sourceFormTitle: session.form.title,
+    sourceFormLocale: session.form.locale,
     sourceFieldLabel: field.label,
     sourceSessionId: session.id,
     sourceAnswerSource: answer.source,

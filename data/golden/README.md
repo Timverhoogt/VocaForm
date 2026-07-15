@@ -10,7 +10,7 @@ The Goal 2 regression set represents three document shapes:
 
 `npm run eval:compiler` evaluates the reviewed compiler outputs against 53 expected fields, 25 explicitly required fields, and the two conditional dependencies. It fails below 95% aggregate recall, below 100% required-field recall, on any fabricated field ID, or on a missing dependency.
 
-This deterministic suite is the offline regression baseline. A live GPT-5.6 Sol replay must be recorded separately with `OPENAI_API_KEY` configured before submission; offline approved outputs must not be represented as a live-model score.
+This deterministic suite is the offline regression baseline. The current live GPT-5.6 Sol replay was recorded separately on July 15, 2026 at 53/53 expected fields and 25/25 required fields, with zero fabrication and no missing dependencies. Its privacy-safe result is in `live_compiler_2026-07-15.json` and the interpretation is in `SUBMISSION_EVIDENCE.md`; offline approved outputs must not be represented as a live-model score.
 
 Goal 5 adds programmatic verification fixtures in `app/evals/verification_fixtures.ts`. `npm run eval:verifier` checks five deterministic failure classes and final-export gating without an API call. `npm run eval:verifier:live` separately compares standard/high and Pro on synthetic contradiction, unsupported-claim, and ambiguity cases and asserts that the supplied sessions remain unchanged.
 

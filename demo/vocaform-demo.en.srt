@@ -1,0 +1,94 @@
+1
+00:00:00,000 --> 00:00:07,500
+Paperwork is hardest when dense language, typing,
+or repeated details are a barrier.
+
+2
+00:00:07,500 --> 00:00:15,000
+VocaForm turns an uploaded everyday form into a voice-guided interview
+and returns a verified completed document.
+
+3
+00:00:15,000 --> 00:00:23,000
+Here I upload a synthetic medical PDF. GPT-5.6 Sol reads both text and layout,
+then compiles the unfamiliar form into a strict, evidence-backed schema:
+
+4
+00:00:23,000 --> 00:00:32,000
+fields, requiredness, dependencies, validation, and exact render targets.
+The readiness gate blocks unsupported questions before any interview begins.
+
+5
+00:00:32,000 --> 00:00:40,000
+There is no manual field mapping.
+
+6
+00:00:40,000 --> 00:00:49,000
+Now OpenAI Realtime conducts a natural, low-latency conversation.
+It is not GPT-5.6 Sol; it is the voice layer.
+
+7
+00:00:49,000 --> 00:01:01,000
+As I answer, versioned application tools validate and save grounded values atomically,
+so a duplicate call or interrupted response cannot silently write twice.
+
+8
+00:01:01,000 --> 00:01:12,000
+If the connection drops, VocaForm rebuilds context from server-owned state
+and resumes at the first unresolved question.
+
+9
+00:01:12,000 --> 00:01:23,000
+Every answer keeps its source and exact spoken wording,
+and the keyboard path provides the same core journey.
+
+10
+00:01:23,000 --> 00:01:35,000
+I kept consent, memory, validation, application state, and rendering authoritative in code;
+the models cannot silently save memory or change an answer.
+
+11
+00:01:35,000 --> 00:01:44,000
+Review begins with deterministic checks for missing, invalid,
+or dependency-sensitive answers.
+
+12
+00:01:44,000 --> 00:01:53,000
+GPT-5.6 Sol then performs a separate non-mutating semantic verification
+for contradictions, ambiguity, or unsupported normalization.
+
+13
+00:01:53,000 --> 00:02:00,000
+It can flag an issue, but it cannot edit the form.
+Final export is tied to this exact session version.
+
+14
+00:02:00,000 --> 00:02:05,000
+VocaForm fills a copied AcroForm PDF, reports one hundred percent placement coverage,
+and confirms that the uploaded source was not changed.
+
+15
+00:02:05,000 --> 00:02:13,000
+On a second form, the Memory Vault suggests only three contact facts
+I explicitly approved. Nothing is applied until I confirm each value.
+
+16
+00:02:13,000 --> 00:02:25,000
+The medical answers never entered memory, and I can correct or forget a claim
+without silently changing an existing form.
+
+17
+00:02:25,000 --> 00:02:34,000
+I used Codex with GPT-5.6 to rebuild the prototype as a modular TypeScript application,
+preserve the proven document logic through adapters,
+
+18
+00:02:34,000 --> 00:02:42,000
+and create the accessibility, evaluation, and resilience gates.
+Human decisions defined privacy, consent, model roles, and scope.
+The live compiler replay found all fifty-three expected fields with zero fabrication.
+
+19
+00:02:42,000 --> 00:02:50,000
+VocaForm: upload, talk, review, download.
+One form, one conversation, done—paperwork made human.

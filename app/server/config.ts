@@ -9,6 +9,8 @@ function parsePort(value: string | undefined, fallback: number): number {
 export interface AppConfig {
   host: string;
   port: number;
+  publicDemo: boolean;
+  storageMode: "local" | "ephemeral";
   openAiApiKey: string;
   openAiModel: string;
   openAiReasoningEffort: "low" | "medium" | "high" | "xhigh" | "max";
@@ -29,6 +31,8 @@ export function getConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   return {
     host: env.HOST?.trim() || "127.0.0.1",
     port: parsePort(env.PORT, 5177),
+    publicDemo: parseBoolean(env.VOCAFORM_PUBLIC_DEMO),
+    storageMode: parseStorageMode(env.VOCAFORM_STORAGE_MODE),
     openAiApiKey: env.OPENAI_API_KEY?.trim() || "",
     openAiModel: env.OPENAI_MODEL?.trim() || "gpt-5.6-sol",
     openAiReasoningEffort: parseReasoningEffort(env.OPENAI_REASONING_EFFORT),
@@ -46,6 +50,14 @@ export function getConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     workDir: path.resolve(env.VOCAFORM_WORK_DIR?.trim() || "work"),
     sofficeBin: env.SOFFICE_BIN?.trim() || "soffice"
   };
+}
+
+function parseBoolean(value: string | undefined): boolean {
+  return ["1", "true", "yes", "on"].includes(value?.trim().toLowerCase() || "");
+}
+
+function parseStorageMode(value: string | undefined): AppConfig["storageMode"] {
+  return value?.trim().toLowerCase() === "ephemeral" ? "ephemeral" : "local";
 }
 
 function parseRealtimeReasoningEffort(value: string | undefined): AppConfig["openAiRealtimeReasoningEffort"] {

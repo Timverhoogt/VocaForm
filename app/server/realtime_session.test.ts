@@ -16,7 +16,7 @@ describe("Realtime session configuration", () => {
     const realtime = buildRealtimeSessionConfig(session, config) as {
       model: string;
       tools: Array<{ name: string }>;
-      audio: { input: { turn_detection: Record<string, unknown>; transcription: { language: string } } };
+      audio: { input: { turn_detection: Record<string, unknown>; transcription: { language?: string } } };
     };
 
     expect(realtime.model).toBe("gpt-realtime-2.1");
@@ -28,5 +28,17 @@ describe("Realtime session configuration", () => {
     });
     expect(realtime.audio.input.transcription.language).toBe("en");
     expect(buildRealtimeInstructions(session)).toContain("call save_answers before saying the answer was saved");
+  });
+
+  it("omits unsupported transcription hints so Realtime can detect the language", async () => {
+    const form = structuredClone((await loadGoldenCompilerFixtures())[2]!.form);
+    form.locale = "fil-PH";
+    const session = createFormSession(form);
+    const realtime = buildRealtimeSessionConfig(session, getConfig({})) as {
+      audio: { input: { transcription: { language?: string } } };
+    };
+
+    expect(realtime.audio.input.transcription.language).toBeUndefined();
+    expect(buildRealtimeInstructions(session)).toContain("Default to the form language (fil-PH)");
   });
 });

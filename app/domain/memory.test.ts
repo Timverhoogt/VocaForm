@@ -61,6 +61,7 @@ describe("user-owned Memory Vault", () => {
     expect(vault.claims.every((claim) => claim.consent === "approved")).toBe(true);
     expect(vault.claims.every((claim) => claim.consentChannel === "ui")).toBe(true);
     expect(vault.claims.every((claim) => claim.sourceSessionId === session.id)).toBe(true);
+    expect(vault.claims.every((claim) => claim.sourceFormLocale === permission.locale)).toBe(true);
     expect(vault.claims.map((claim) => claim.sourceFieldId)).not.toContain("child_name");
   });
 
@@ -89,6 +90,7 @@ describe("user-owned Memory Vault", () => {
       "guardian_phone",
       "guardian_email"
     ]);
+    expect(before.suggestions.every((item) => item.sourceFormLocale === permission.locale)).toBe(true);
     expect(Object.values(secondSession.prefillAnswers).every((answer) => answer.status === "unanswered")).toBe(true);
 
     for (const suggestion of before.suggestions) {

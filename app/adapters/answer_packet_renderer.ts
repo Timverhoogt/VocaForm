@@ -57,9 +57,9 @@ export function buildAnswerPacketDocx(session: FormSession, options: AnswerPacke
     { name: "[Content_Types].xml", data: Buffer.from(contentTypesXml(), "utf8") },
     { name: "_rels/.rels", data: Buffer.from(packageRelationshipsXml(), "utf8") },
     { name: "docProps/app.xml", data: Buffer.from(appPropertiesXml(), "utf8") },
-    { name: "docProps/core.xml", data: Buffer.from(corePropertiesXml(options.title), "utf8") },
+    { name: "docProps/core.xml", data: Buffer.from(corePropertiesXml(options.title, session.form.locale), "utf8") },
     { name: "word/document.xml", data: Buffer.from(documentXml, "utf8") },
-    { name: "word/styles.xml", data: Buffer.from(stylesXml(), "utf8") },
+    { name: "word/styles.xml", data: Buffer.from(stylesXml(session.form.locale), "utf8") },
     { name: "word/header1.xml", data: Buffer.from(headerXml(), "utf8") },
     { name: "word/footer1.xml", data: Buffer.from(footerXml(), "utf8") },
     { name: "word/_rels/document.xml.rels", data: Buffer.from(documentRelationshipsXml(), "utf8") }
@@ -162,18 +162,18 @@ function sectionProperties(): string {
   ].join("");
 }
 
-function stylesXml(): string {
+function stylesXml(locale: string): string {
   return xml([
     '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">',
     '<w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>',
-    '<w:sz w:val="22"/><w:szCs w:val="22"/><w:color w:val="17352D"/></w:rPr></w:rPrDefault>',
+    `<w:lang w:val="${escapeXml(locale)}"/><w:sz w:val="22"/><w:szCs w:val="22"/><w:color w:val="17352D"/></w:rPr></w:rPrDefault>`,
     '<w:pPrDefault><w:pPr><w:spacing w:before="0" w:after="120" w:line="300" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>',
     style("Normal", "Normal", '<w:qFormat/><w:pPr><w:spacing w:before="0" w:after="120" w:line="300" w:lineRule="auto"/></w:pPr>', '<w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="22"/><w:color w:val="17352D"/></w:rPr>'),
     style("PacketKicker", "Packet kicker", '<w:basedOn w:val="Normal"/><w:next w:val="PacketTitle"/><w:pPr><w:spacing w:before="40" w:after="0"/></w:pPr>', '<w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:color w:val="426A5A"/><w:sz w:val="18"/><w:caps/></w:rPr>'),
     style("PacketTitle", "Packet title", '<w:basedOn w:val="Normal"/><w:next w:val="PacketSubtitle"/><w:pPr><w:spacing w:before="0" w:after="100"/><w:keepNext/></w:pPr>', '<w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:color w:val="17352D"/><w:sz w:val="52"/></w:rPr>'),
     style("PacketSubtitle", "Packet subtitle", '<w:basedOn w:val="Normal"/><w:next w:val="PacketSource"/><w:pPr><w:spacing w:before="0" w:after="60"/><w:keepNext/></w:pPr>', '<w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:color w:val="425A52"/><w:sz w:val="28"/></w:rPr>'),
     style("PacketSource", "Packet source", '<w:basedOn w:val="Normal"/><w:pPr><w:spacing w:before="0" w:after="180"/></w:pPr>', '<w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:i/><w:color w:val="61716B"/><w:sz w:val="19"/></w:rPr>'),
-    style("Heading1", "Heading 1", '<w:basedOn w:val="Normal"/><w:next w:val="PacketQuestion"/><w:qFormat/><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="360" w:after="200"/></w:pPr>', '<w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:color w:val="2E74B5"/><w:sz w:val="32"/></w:rPr>'),
+    style("Heading1", "Heading 1", '<w:basedOn w:val="Normal"/><w:next w:val="PacketQuestion"/><w:qFormat/><w:pPr><w:outlineLvl w:val="0"/><w:keepNext/><w:keepLines/><w:spacing w:before="360" w:after="200"/></w:pPr>', '<w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:color w:val="2E74B5"/><w:sz w:val="32"/></w:rPr>'),
     style("Heading2", "Heading 2", '<w:basedOn w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="280" w:after="140"/></w:pPr>', '<w:rPr><w:b/><w:color w:val="2E74B5"/><w:sz w:val="26"/></w:rPr>'),
     style("PacketQuestion", "Packet question", '<w:basedOn w:val="Normal"/><w:next w:val="PacketAnswer"/><w:pPr><w:keepNext/><w:spacing w:before="100" w:after="40" w:line="280" w:lineRule="auto"/></w:pPr>', '<w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:color w:val="17352D"/><w:sz w:val="21"/></w:rPr>'),
     style("PacketAnswer", "Packet answer", '<w:basedOn w:val="Normal"/><w:pPr><w:spacing w:before="0" w:after="140" w:line="300" w:lineRule="auto"/><w:ind w:left="180"/></w:pPr>', '<w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:color w:val="273E36"/><w:sz w:val="22"/></w:rPr>'),
@@ -241,12 +241,13 @@ function documentRelationshipsXml(): string {
   ]);
 }
 
-function corePropertiesXml(title: string): string {
+function corePropertiesXml(title: string, locale: string): string {
   return xml([
     '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties"',
     ' xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/"',
     ' xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">',
     `<dc:title>${escapeXml(title)}</dc:title><dc:creator>VocaForm</dc:creator>`,
+    `<dc:language>${escapeXml(locale)}</dc:language>`,
     "<dc:description>Completed answers generated from a user-verified VocaForm session.</dc:description>",
     "</cp:coreProperties>"
   ]);

@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type RefObject
+} from "react";
 import logoUrl from "../../public/assets/vocaform-mark.svg";
 import type {
   MemorySuggestion,
@@ -485,15 +492,30 @@ export function App() {
           </button>
           <div className="privacy-note">
             <span aria-hidden="true">●</span>
-            Private by design
+            {health?.deployment.publicDemo ? "Synthetic demo" : "Private by design"}
           </div>
         </div>
       </header>
+
+      {health?.deployment.publicDemo && (
+        <aside className="public-demo-notice" aria-labelledby="public-demo-title">
+          <strong id="public-demo-title">Public synthetic-data demo</strong>
+          <span>
+            Use reviewed sample information only. Do not enter personal, medical, or confidential information.
+            Your active form and demo Memory Vault are isolated to this browser session and are not written to demo storage.
+            The session expires after at most two hours and may disappear when the server restarts.{" "}
+            {health.deployment.storage === "ephemeral"
+              ? "The host filesystem is also temporary."
+              : "The host filesystem is persistent, but public visitor state is not stored there."}
+          </span>
+        </aside>
+      )}
 
       {memoryOpen && (
         <MemoryView
           busy={busy}
           candidates={view?.memory.rememberableAnswers ?? []}
+          formLocale={view?.session.form.locale ?? null}
           memory={memory}
           onClose={closeMemory}
           onCorrect={correctMemory}
@@ -597,7 +619,7 @@ export function App() {
             <h2 id="form-status-title" className="status-label">Today’s form</h2>
             {view ? (
               <>
-                <h3>{view.session.form.title}</h3>
+                <h3 dir="auto" lang={view.session.form.locale}>{view.session.form.title}</h3>
                 <p>{view.session.form.source.fileName}</p>
                 <div className="progress-copy">
                   <strong>{view.summary.completionPercent}%</strong>
@@ -633,7 +655,7 @@ export function App() {
               </>
             ) : compilation ? (
               <>
-                <h3>{compilation.form?.title || "Uploaded document"}</h3>
+                <h3 dir="auto" lang={compilation.form?.locale}>{compilation.form?.title || "Uploaded document"}</h3>
                 <p>{compilation.form?.source.fileName || "Document check"}</p>
                 <div className="progress-copy">
                   <strong>{compilation.readiness.score}</strong>
@@ -664,7 +686,9 @@ export function App() {
             )}
             <div className="system-state">
               <span className={health?.openai.configured ? "state-dot connected" : "state-dot"} aria-hidden="true" />
-              {health?.openai.configured ? "Private upload ready" : "Reviewed samples ready"}
+              {health?.deployment.publicDemo
+                ? "Public demo ready"
+                : health?.openai.configured ? "Private upload ready" : "Reviewed samples ready"}
             </div>
           </aside>
         </div>
@@ -692,7 +716,9 @@ export function App() {
 
       <footer>
         <span>VocaForm</span>
-        <span>Your answers stay under your control.</span>
+        <span>{health?.deployment.publicDemo
+          ? "Public demo: use synthetic data only."
+          : "Your answers stay under your control."}</span>
       </footer>
     </div>
   );
@@ -713,6 +739,7 @@ interface UnderstandStageProps {
 }
 
 function UnderstandStage(props: UnderstandStageProps) {
+  const startButtonRef = useRef<HTMLButtonElement>(null);
   const {
     busy,
     compilation,
@@ -795,7 +822,7 @@ function UnderstandStage(props: UnderstandStageProps) {
   return (
     <div className="stage-content">
       <p className="stage-kicker">Form understood</p>
-      <h2 data-stage-heading tabIndex={-1}>{view.session.form.title}</h2>
+      <h2 data-stage-heading dir="auto" lang={view.session.form.locale} tabIndex={-1}>{view.session.form.title}</h2>
       <p className="stage-lead">
         The form is organized into {view.session.form.sections.length} sections. VocaForm found {fields.length} questions and prepared a clear route through them.
       </p>
@@ -814,11 +841,13 @@ function UnderstandStage(props: UnderstandStageProps) {
       {view.memory.suggestions.length > 0 && (
         <MemorySuggestions
           busy={busy}
+          fallbackFocusRef={startButtonRef}
+          locale={view.session.form.locale}
           suggestions={view.memory.suggestions}
           onApply={onApplyMemory}
         />
       )}
-      <button type="button" className="primary-button" disabled={busy} onClick={onStart}>
+      <button ref={startButtonRef} type="button" className="primary-button" disabled={busy} onClick={onStart}>
         Start answering
         <span aria-hidden="true">→</span>
       </button>
@@ -841,7 +870,7 @@ function CompilationReadiness({ busy, compilation, onDiscard, onStart }: Compila
   return (
     <div className="stage-content compilation-stage">
       <p className="stage-kicker">Document readiness check</p>
-      <h2 data-stage-heading tabIndex={-1}>{form?.title || "This document needs another look."}</h2>
+      <h2 data-stage-heading dir="auto" lang={form?.locale} tabIndex={-1}>{form?.title || "This document needs another look."}</h2>
       <p className="stage-lead">{compilation.documentSummary}</p>
 
       <div className={readiness.ready ? "readiness-hero ready" : "readiness-hero attention"}>
@@ -880,17 +909,17 @@ function CompilationReadiness({ busy, compilation, onDiscard, onStart }: Compila
           {form.sections.map((section) => (
             <details key={section.id}>
               <summary>
-                <span>{section.title}</span>
+                <span dir="auto" lang={form.locale}>{section.title}</span>
                 <small>{section.fields.length} {section.fields.length === 1 ? "question" : "questions"}</small>
               </summary>
               <ul>
                 {section.fields.map((field) => (
                   <li key={field.id}>
                     <div>
-                      <strong>{field.label}</strong>
+                      <strong dir="auto" lang={form.locale}>{field.label}</strong>
                       <span>{field.required ? "Required" : "Optional"}</span>
                     </div>
-                    <q>{field.evidence[0]?.text || "No source quote"}</q>
+                    <q dir="auto" lang={field.evidence[0]?.text ? form.locale : undefined}>{field.evidence[0]?.text || "No source quote"}</q>
                   </li>
                 ))}
               </ul>
@@ -946,6 +975,7 @@ interface TalkStageProps {
 
 function TalkStage(props: TalkStageProps) {
   const { answer, busy, currentField, currentSectionTitle, view } = props;
+  const typeButtonRef = useRef<HTMLButtonElement>(null);
   const voiceAvailable = props.realtime.supported;
   const [mode, setMode] = useState<"voice" | "type">(voiceAvailable ? "voice" : "type");
   const voiceActive = !["idle", "error", "complete"].includes(props.realtime.state);
@@ -972,17 +1002,20 @@ function TalkStage(props: TalkStageProps) {
       {view.memory.suggestions.length > 0 && (
         <MemorySuggestions
           busy={busy}
+          fallbackFocusRef={typeButtonRef}
           suggestions={view.memory.suggestions}
           onApply={props.onApplyMemory}
           compact
+          locale={view.session.form.locale}
         />
       )}
       <div className="question-meta">
-        <span>{currentSectionTitle}</span>
+        <span dir="auto" lang={currentSectionTitle === "Form details" ? undefined : view.session.form.locale}>{currentSectionTitle}</span>
         <span>{currentField.required ? "Required question" : "Optional question"} · {view.summary.openFields} open</span>
       </div>
       <div className="answer-mode" role="group" aria-label="How to answer">
         <button
+          ref={typeButtonRef}
           type="button"
           aria-pressed={mode === "voice"}
           aria-describedby={!voiceAvailable ? "voice-unavailable-help" : undefined}
@@ -1011,7 +1044,14 @@ function TalkStage(props: TalkStageProps) {
           <p className="voice-status" role="status" aria-live="polite">
             {voiceStateLabel(props.realtime.state)}
           </p>
-          <h2 data-stage-heading tabIndex={-1}>{props.realtime.assistantText || "Ready for a calm conversation?"}</h2>
+          <h2
+            data-stage-heading
+            dir="auto"
+            lang={props.realtime.assistantText ? view.session.form.locale : undefined}
+            tabIndex={-1}
+          >
+            {props.realtime.assistantText || "Ready for a calm conversation?"}
+          </h2>
           <p className="voice-guidance" role={props.realtime.error ? "alert" : undefined}>
             {props.realtime.error || (voiceActive
               ? "Speak naturally. You can pause, correct yourself, or interrupt at any time."
@@ -1033,14 +1073,17 @@ function TalkStage(props: TalkStageProps) {
       ) : (
         <div id="text-answer-panel" className="text-answer-panel">
           <p className="stage-kicker">One question at a time</p>
-          <h2 data-stage-heading tabIndex={-1}>{currentField.interviewPrompt}</h2>
+          <h2 data-stage-heading dir="auto" lang={view.session.form.locale} tabIndex={-1}>{currentField.interviewPrompt}</h2>
           {currentField.examples.length > 0 && (
-            <p id="answer-help" className="question-help">For example: {currentField.examples.slice(0, 2).join(" · ")}</p>
+            <p id="answer-help" className="question-help">
+              For example: <span dir="auto" lang={view.session.form.locale}>{currentField.examples.slice(0, 2).join(" · ")}</span>
+            </p>
           )}
           <form onSubmit={(event) => void props.onSubmit(event)}>
             <label htmlFor="answer">Your answer</label>
             <textarea
               id="answer"
+              dir="auto"
               aria-describedby={currentField.examples.length > 0 ? "answer-help" : undefined}
               aria-required={currentField.required}
               value={answer}
@@ -1101,6 +1144,7 @@ interface ReviewStageProps {
 
 function ReviewStage(props: ReviewStageProps) {
   const { busy, view, onContinue, onDownload, onRemember, onReset } = props;
+  const afterMemoryRef = useRef<HTMLButtonElement>(null);
   const answered = Object.values(view.session.answers).filter((answer) => answer.status === "answered");
   const blockers = view.verification.issues.filter((issue) => issue.severity === "blocker" && !issue.resolved);
   const ready = view.verification.readyForFinalExport;
@@ -1153,8 +1197,8 @@ function ReviewStage(props: ReviewStageProps) {
             <div key={item.fieldId} className="answer-row">
               <span aria-hidden="true">✓</span>
               <div>
-                <strong>{findFieldLabel(view, item.fieldId)}</strong>
-                <p>{formatAnswer(item.normalizedAnswer)}</p>
+                <strong dir="auto" lang={view.session.form.locale}>{findFieldLabel(view, item.fieldId)}</strong>
+                <p dir="auto">{formatAnswer(item.normalizedAnswer)}</p>
                 {item.source === "memory" && <small className="memory-source">Confirmed from your Memory Vault</small>}
               </div>
             </div>
@@ -1170,7 +1214,7 @@ function ReviewStage(props: ReviewStageProps) {
             <div key={item.fieldId} className="answer-row">
               <span aria-hidden="true">✓</span>
               <div>
-                <strong>{item.fieldLabel}</strong>
+                <strong dir="auto" lang={view.session.form.locale}>{item.fieldLabel}</strong>
                 <p>{formatValue(item.value)}</p>
                 <small className="memory-source">Confirmed from your Memory Vault</small>
               </div>
@@ -1183,12 +1227,22 @@ function ReviewStage(props: ReviewStageProps) {
         <RememberCandidates
           busy={busy}
           candidates={view.memory.rememberableAnswers}
+          fallbackFocusRef={afterMemoryRef}
+          locale={view.session.form.locale}
           onRemember={onRemember}
         />
       )}
 
       <div className="review-actions">
-        <button type="button" className="quiet-button" disabled={busy} onClick={onContinue}>Continue answering</button>
+        <button
+          ref={afterMemoryRef}
+          type="button"
+          className="quiet-button"
+          disabled={busy}
+          onClick={onContinue}
+        >
+          Continue answering
+        </button>
         <button
           type="button"
           className="primary-button compact"
@@ -1304,6 +1358,7 @@ interface VerificationPanelProps {
 }
 
 function VerificationPanel(props: VerificationPanelProps) {
+  const panelRef = useRef<HTMLElement>(null);
   const [editing, setEditing] = useState<{ issueId: string; action: "answer" | "correct" } | null>(null);
   const [draftValue, setDraftValue] = useState("");
   const [targetFieldId, setTargetFieldId] = useState("");
@@ -1324,8 +1379,24 @@ function VerificationPanel(props: VerificationPanelProps) {
     setDraftValue("");
   }
 
+  async function resolveAndRestoreFocus(
+    issue: VerificationIssue,
+    action: VerificationAction,
+    value?: string,
+    fieldId?: string
+  ) {
+    await props.onResolve(issue, action, value, fieldId);
+    cancelEdit();
+    window.requestAnimationFrame(() => {
+      const nextAction = panelRef.current?.querySelector<HTMLButtonElement>(
+        ".finding-actions button:not([disabled]), .verification-run button:not([disabled])"
+      );
+      (nextAction ?? panelRef.current)?.focus();
+    });
+  }
+
   return (
-    <section className="verification-panel" aria-labelledby="verification-title">
+    <section ref={panelRef} className="verification-panel" aria-labelledby="verification-title" tabIndex={-1}>
       <div className="verification-heading">
         <div>
           <p className="stage-kicker">Final verification</p>
@@ -1344,6 +1415,7 @@ function VerificationPanel(props: VerificationPanelProps) {
             const issueFieldIds = [issue.fieldId, ...issue.relatedFieldIds]
               .filter((fieldId): fieldId is string => Boolean(fieldId));
             const isEditing = editing?.issueId === issue.id;
+            const issueLabel = verificationFieldLabel(props.view, issue.fieldId);
             return (
               <article key={issue.id} className={`finding-card ${issue.severity}`}>
                 <div className="finding-copy">
@@ -1351,7 +1423,9 @@ function VerificationPanel(props: VerificationPanelProps) {
                     <span>{issue.severity === "blocker" ? "Needs you" : "Check"}</span>
                     <small>{issue.source === "model" ? "Automatic meaning check" : "Form rule check"}</small>
                   </div>
-                  <strong>{verificationFieldLabel(props.view, issue.fieldId)}</strong>
+                  <strong dir="auto" lang={issue.fieldId ? props.view.session.form.locale : undefined}>
+                    {issueLabel}
+                  </strong>
                   <p>{issue.message}</p>
                   <small className="finding-evidence">Why: {issue.evidence}</small>
                 </div>
@@ -1362,12 +1436,12 @@ function VerificationPanel(props: VerificationPanelProps) {
                     onSubmit={(event) => {
                       event.preventDefault();
                       if (!draftValue.trim()) return;
-                      void props.onResolve(issue, editableAction, draftValue.trim(), targetFieldId).then(cancelEdit);
+                      void resolveAndRestoreFocus(issue, editableAction, draftValue.trim(), targetFieldId);
                     }}
                   >
                     {issueFieldIds.length > 1 && (
                       <label>
-                        Answer to update
+                        Answer to update for {issueLabel}
                         <select
                           value={targetFieldId}
                           onChange={(event) => {
@@ -1376,13 +1450,15 @@ function VerificationPanel(props: VerificationPanelProps) {
                           }}
                         >
                           {issueFieldIds.map((fieldId) => (
-                            <option key={fieldId} value={fieldId}>{verificationFieldLabel(props.view, fieldId)}</option>
+                            <option key={fieldId} dir="auto" lang={props.view.session.form.locale} value={fieldId}>
+                              {verificationFieldLabel(props.view, fieldId)}
+                            </option>
                           ))}
                         </select>
                       </label>
                     )}
                     <label>
-                      {editableAction === "answer" ? "Your answer" : "Corrected answer"}
+                      {editableAction === "answer" ? "Your answer for" : "Corrected answer for"} {issueLabel}
                       <textarea
                         rows={3}
                         value={draftValue}
@@ -1391,24 +1467,53 @@ function VerificationPanel(props: VerificationPanelProps) {
                       />
                     </label>
                     <div className="finding-actions">
-                      <button type="button" disabled={props.busy} onClick={cancelEdit}>Cancel</button>
-                      <button type="submit" disabled={props.busy || !draftValue.trim()}>Save explicitly</button>
+                      <button
+                        type="button"
+                        disabled={props.busy}
+                        aria-label={`Cancel ${editableAction === "answer" ? "answer" : "correction"} for ${issueLabel}`}
+                        onClick={cancelEdit}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={props.busy || !draftValue.trim()}
+                        aria-label={`Save ${editableAction === "answer" ? "answer" : "correction"} for ${issueLabel}`}
+                      >
+                        Save explicitly
+                      </button>
                     </div>
                   </form>
                 ) : (
                   <div className="finding-actions">
                     {editableAction && (
-                      <button type="button" disabled={props.busy} onClick={() => beginEdit(issue, editableAction)}>
+                      <button
+                        type="button"
+                        disabled={props.busy}
+                        aria-label={`${editableAction === "answer" ? "Answer now for" : "Correct"} ${issueLabel}`}
+                        onClick={() => beginEdit(issue, editableAction)}
+                      >
                         {editableAction === "answer" ? "Answer now" : "Correct"}
                       </button>
                     )}
                     {issue.actions.includes("confirm") && (
-                      <button type="button" disabled={props.busy} onClick={() => void props.onResolve(issue, "confirm")}>
+                      <button
+                        type="button"
+                        disabled={props.busy}
+                        aria-label={`Confirm ${issueLabel} as written`}
+                        onClick={() => void resolveAndRestoreFocus(issue, "confirm")}
+                      >
                         Confirm as written
                       </button>
                     )}
                     {issue.actions.includes("leave_blank") && (
-                      <button className="leave-blank" type="button" disabled={props.busy} onClick={() => void props.onResolve(issue, "leave_blank")}>
+                      <button
+                        className="leave-blank"
+                        type="button"
+                        disabled={props.busy}
+                        aria-label={`Leave ${issueLabel} blank`}
+                        onClick={() => void resolveAndRestoreFocus(issue, "leave_blank")}
+                      >
                         Leave blank
                       </button>
                     )}
@@ -1441,11 +1546,32 @@ function VerificationPanel(props: VerificationPanelProps) {
 interface MemorySuggestionsProps {
   busy: boolean;
   compact?: boolean;
+  fallbackFocusRef: RefObject<HTMLButtonElement | null>;
+  locale: string;
   suggestions: MemorySuggestion[];
   onApply: (suggestion: MemorySuggestion) => Promise<void>;
 }
 
-function MemorySuggestions({ busy, compact = false, suggestions, onApply }: MemorySuggestionsProps) {
+function MemorySuggestions({
+  busy,
+  compact = false,
+  fallbackFocusRef,
+  locale,
+  suggestions,
+  onApply
+}: MemorySuggestionsProps) {
+  const buttonRefs = useRef(new Map<string, HTMLButtonElement>());
+
+  async function handleApply(suggestion: MemorySuggestion, index: number) {
+    const nextSuggestion = suggestions[index + 1] ?? suggestions[index - 1];
+    await onApply(suggestion);
+    window.requestAnimationFrame(() => {
+      const nextKey = nextSuggestion ? `${nextSuggestion.fieldId}:${nextSuggestion.claimId}` : null;
+      const nextButton = nextKey ? buttonRefs.current.get(nextKey) : null;
+      (nextButton ?? fallbackFocusRef.current)?.focus();
+    });
+  }
+
   return (
     <section className={compact ? "memory-suggestions compact" : "memory-suggestions"} aria-label="Memory suggestions">
       <div className="memory-section-heading">
@@ -1457,14 +1583,27 @@ function MemorySuggestions({ busy, compact = false, suggestions, onApply }: Memo
       </div>
       <p className="memory-explainer">Nothing has been filled yet. Confirm each detail before VocaForm uses it on this form.</p>
       <div className="memory-card-list">
-        {suggestions.map((suggestion) => (
+        {suggestions.map((suggestion, index) => (
           <article key={`${suggestion.fieldId}:${suggestion.claimId}`} className="memory-suggestion-card">
             <div>
-              <span>{suggestion.fieldLabel}</span>
-              <strong>{formatValue(suggestion.value)}</strong>
-              <small>For {suggestion.subject} · remembered from {suggestion.sourceFormTitle}</small>
+              <span dir="auto" lang={locale}>{suggestion.fieldLabel}</span>
+              <strong dir="auto">{formatValue(suggestion.value)}</strong>
+              <small>
+                For {suggestion.subject} · remembered from{" "}
+                <span dir="auto" lang={suggestion.sourceFormLocale || undefined}>{suggestion.sourceFormTitle}</span>
+              </small>
             </div>
-            <button type="button" disabled={busy} onClick={() => void onApply(suggestion)}>
+            <button
+              ref={(element) => {
+                const key = `${suggestion.fieldId}:${suggestion.claimId}`;
+                if (element) buttonRefs.current.set(key, element);
+                else buttonRefs.current.delete(key);
+              }}
+              type="button"
+              disabled={busy}
+              aria-label={`Use remembered ${suggestion.fieldLabel}`}
+              onClick={() => void handleApply(suggestion, index)}
+            >
               Use this
             </button>
           </article>
@@ -1477,27 +1616,45 @@ function MemorySuggestions({ busy, compact = false, suggestions, onApply }: Memo
 interface RememberCandidatesProps {
   busy: boolean;
   candidates: RememberableAnswer[];
+  fallbackFocusRef: RefObject<HTMLButtonElement | null>;
+  locale: string;
   onRemember: (fieldId: string, subject: string) => Promise<void>;
 }
 
-function RememberCandidates({ busy, candidates, onRemember }: RememberCandidatesProps) {
+function RememberCandidates({ busy, candidates, fallbackFocusRef, locale, onRemember }: RememberCandidatesProps) {
+  const buttonRefs = useRef(new Map<string, HTMLButtonElement>());
+
+  async function handleRemember(candidate: RememberableAnswer, index: number) {
+    const nextCandidateId = candidates[index + 1]?.fieldId ?? candidates[index - 1]?.fieldId;
+    await onRemember(candidate.fieldId, candidate.subject);
+    window.requestAnimationFrame(() => {
+      const nextButton = nextCandidateId ? buttonRefs.current.get(nextCandidateId) : null;
+      (nextButton ?? fallbackFocusRef.current)?.focus();
+    });
+  }
+
   return (
     <section className="remember-candidates" aria-label="Answers you can remember">
       <p className="stage-kicker">Save time next form</p>
       <h3>Would you like VocaForm to remember any of these?</h3>
       <p>Only stable contact details appear here. Nothing is stored unless you choose Remember.</p>
       <div className="memory-card-list">
-        {candidates.map((candidate) => (
+        {candidates.map((candidate, index) => (
           <article key={candidate.fieldId} className="remember-candidate-card">
             <div>
-              <span>{candidate.fieldLabel}</span>
-              <strong>{formatValue(candidate.value)}</strong>
+              <span dir="auto" lang={locale}>{candidate.fieldLabel}</span>
+              <strong dir="auto">{formatValue(candidate.value)}</strong>
               <small>{candidate.reason}</small>
             </div>
             <button
+              ref={(element) => {
+                if (element) buttonRefs.current.set(candidate.fieldId, element);
+                else buttonRefs.current.delete(candidate.fieldId);
+              }}
               type="button"
               disabled={busy}
-              onClick={() => void onRemember(candidate.fieldId, candidate.subject)}
+              aria-label={`${candidate.action === "update" ? "Update memory for" : "Remember"} ${candidate.fieldLabel}`}
+              onClick={() => void handleRemember(candidate, index)}
             >
               {candidate.action === "update" ? "Update memory" : "Remember"}
             </button>
@@ -1511,6 +1668,7 @@ function RememberCandidates({ busy, candidates, onRemember }: RememberCandidates
 interface MemoryViewProps {
   busy: boolean;
   candidates: RememberableAnswer[];
+  formLocale: string | null;
   memory: MemoryVaultView | null;
   onClose: () => void;
   onCorrect: (claimId: string, value: string) => Promise<void>;
@@ -1575,6 +1733,8 @@ function MemoryView(props: MemoryViewProps) {
           <RememberCandidates
             busy={props.busy}
             candidates={props.candidates}
+            fallbackFocusRef={closeButtonRef}
+            locale={props.formLocale || "en"}
             onRemember={props.onRemember}
           />
         )}
@@ -1591,14 +1751,18 @@ function MemoryView(props: MemoryViewProps) {
               <article key={claim.id} className="vault-claim">
                 <div className="claim-heading">
                   <div>
-                    <span>{claim.sourceFieldLabel || humanizeMemoryKey(claim.key)}</span>
+                    <span dir="auto" lang={claim.sourceFieldLabel ? claim.sourceFormLocale || undefined : undefined}>
+                      {claim.sourceFieldLabel || humanizeMemoryKey(claim.key)}
+                    </span>
                     <small>{claim.subject}</small>
                   </div>
                   <span className="approved-badge">Approved</span>
                 </div>
                 {editingClaimId === claim.id ? (
                   <form onSubmit={(event) => void submitCorrection(event, claim.id)}>
-                    <label htmlFor={`memory-${claim.id}`}>Correct remembered value</label>
+                    <label htmlFor={`memory-${claim.id}`}>
+                      Correct remembered value for {claim.sourceFieldLabel || humanizeMemoryKey(claim.key)}
+                    </label>
                     <input
                       id={`memory-${claim.id}`}
                       value={draftValue}
@@ -1607,20 +1771,52 @@ function MemoryView(props: MemoryViewProps) {
                       autoFocus
                     />
                     <div className="claim-actions">
-                      <button type="button" disabled={props.busy} onClick={() => setEditingClaimId(null)}>Cancel</button>
-                      <button type="submit" disabled={props.busy || !draftValue.trim()}>Save correction</button>
+                      <button
+                        type="button"
+                        disabled={props.busy}
+                        aria-label={`Cancel correction for ${claim.sourceFieldLabel || humanizeMemoryKey(claim.key)}`}
+                        onClick={() => setEditingClaimId(null)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={props.busy || !draftValue.trim()}
+                        aria-label={`Save correction for ${claim.sourceFieldLabel || humanizeMemoryKey(claim.key)}`}
+                      >
+                        Save correction
+                      </button>
                     </div>
                   </form>
                 ) : (
                   <>
-                    <strong className="claim-value">{formatValue(claim.value)}</strong>
+                    <strong className="claim-value" dir="auto">{formatValue(claim.value)}</strong>
                     <p>
-                      Remembered from {claim.sourceFormTitle || claim.sourceFormId} on{" "}
+                      Remembered from{" "}
+                      <span dir="auto" lang={claim.sourceFormTitle ? claim.sourceFormLocale || undefined : undefined}>
+                        {claim.sourceFormTitle || claim.sourceFormId}
+                      </span>{" "}
+                      on{" "}
                       <time dateTime={claim.confirmedAt ?? undefined}>{formatDate(claim.confirmedAt)}</time>.
                     </p>
                     <div className="claim-actions">
-                      <button type="button" disabled={props.busy} onClick={() => beginCorrection(claim)}>Correct</button>
-                      <button type="button" className="forget" disabled={props.busy} onClick={() => void props.onForget(claim.id)}>Forget</button>
+                      <button
+                        type="button"
+                        disabled={props.busy}
+                        aria-label={`Correct ${claim.sourceFieldLabel || humanizeMemoryKey(claim.key)}`}
+                        onClick={() => beginCorrection(claim)}
+                      >
+                        Correct
+                      </button>
+                      <button
+                        type="button"
+                        className="forget"
+                        disabled={props.busy}
+                        aria-label={`Forget ${claim.sourceFieldLabel || humanizeMemoryKey(claim.key)}`}
+                        onClick={() => void props.onForget(claim.id)}
+                      >
+                        Forget
+                      </button>
                     </div>
                   </>
                 )}

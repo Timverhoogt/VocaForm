@@ -4,6 +4,8 @@ import {
   PDFCheckBox,
   PDFDocument,
   PDFDropdown,
+  PDFHexString,
+  PDFName,
   PDFOptionList,
   PDFRadioGroup,
   PDFTextField,
@@ -205,6 +207,7 @@ function renderDocx(session: FormSession, source: SourceDocument): RenderedDocum
     documentXml = appendToDocumentXml(documentXml, docxFallbackXml(source.fileName, fallback));
   }
   documentEntry.data = Buffer.from(documentXml, "utf8");
+  ensureDocxLanguage(entries, session.form.locale);
   const output = writeZip(entries);
   assertSourcePreserved(source.bytes, sourceSnapshot);
   return renderedResult(
@@ -233,6 +236,8 @@ async function renderPdf(session: FormSession, source: SourceDocument): Promise<
 
   const answers = renderAnswers(session);
   const form = pdf.getForm();
+  pdf.setLanguage(session.form.locale);
+  pdf.catalog.getOrCreateViewerPreferences().setDisplayDocTitle(true);
   const fields = new Map(form.getFields().map((field) => [field.getName(), field]));
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const placements: RenderPlacement[] = [];
@@ -249,6 +254,7 @@ async function renderPdf(session: FormSession, source: SourceDocument): Promise<
       } catch {
         continue;
       }
+      setPdfFieldAlternateName(field, answer.label);
       placements.push({
         fieldId: answer.fieldId,
         targetKind: "pdf_field",
@@ -371,6 +377,10 @@ function fillPdfField(field: PDFField, answer: RenderAnswer, font: PDFFont): boo
     return true;
   }
   return false;
+}
+
+function setPdfFieldAlternateName(field: PDFField, label: string): void {
+  field.acroField.dict.set(PDFName.of("TU"), PDFHexString.fromText(label));
 }
 
 function matchingOption(options: string[], value: string): string | null {
@@ -562,6 +572,18 @@ function appendToDocumentXml(documentXml: string, addition: string): string {
   const bodyIndex = documentXml.lastIndexOf("</w:body>");
   if (bodyIndex < 0) throw new DocumentRenderError("The DOCX body could not be updated.");
   return `${documentXml.slice(0, bodyIndex)}${addition}${documentXml.slice(bodyIndex)}`;
+}
+
+function ensureDocxLanguage(entries: Array<{ name: string; data: Buffer }>, locale: string): void {
+  const stylesEntry = entries.find((entry) => entry.name === "word/styles.xml");
+  if (!stylesEntry) return;
+  const stylesXml = stylesEntry.data.toString("utf8");
+  if (/<w:lang\b/.test(stylesXml)) return;
+  const updated = stylesXml.replace(
+    /(<w:rPrDefault\b[^>]*>[\s\S]*?<w:rPr\b[^>]*>)/,
+    `$1<w:lang w:val="${escapeXml(locale)}"/>`
+  );
+  if (updated !== stylesXml) stylesEntry.data = Buffer.from(updated, "utf8");
 }
 
 function appendPdfFallbackPages(

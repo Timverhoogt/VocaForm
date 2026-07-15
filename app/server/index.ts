@@ -8,8 +8,7 @@ import {
   DocumentRenderError,
   renderDraftDocument,
   renderVerifiedDocument,
-  type RenderedDocument,
-  type SourceDocument
+  type RenderedDocument
 } from "../adapters/document_renderer";
 import { AnswerValidationError } from "../domain/answers";
 import { evaluateCompilation, toFormDefinition } from "../domain/compiler";
@@ -17,6 +16,7 @@ import {
   buildSessionMemoryContext,
   confirmMemoryClaimForSession,
   correctMemoryClaim,
+  createEmptyMemoryVault,
   forgetMemoryClaim,
   MemoryValidationError,
   rememberSessionAnswer
@@ -39,11 +39,9 @@ import {
   buildFinalVerification,
   createSemanticIssues,
   resolveVerificationIssue,
-  type SemanticVerificationRun,
   VerificationValidationError
 } from "../domain/verification";
 import type {
-  CompilationResult,
   HealthPayload,
   MemoryMutationResponse,
   MemoryVaultView,
@@ -54,9 +52,22 @@ import { prepareCompilerDocument } from "./document_upload";
 import { listFixtures, loadFixture, loadFixtureSource } from "./fixtures";
 import { OpenAiFinalVerifier } from "./final_verifier";
 import { OpenAiFormCompiler } from "./form_compiler";
-import { InterviewToolExecutor, interviewToolRequestSchema } from "./interview_tools";
+import { interviewToolRequestSchema } from "./interview_tools";
 import { MemoryVaultFileStore } from "./memory_vault_store";
+import { PublicDemoRateLimiter, type PublicModelOperation } from "./public_demo_rate_limit";
 import { buildRealtimeSessionConfig } from "./realtime_session";
+import {
+  clientResilienceMetricSchema,
+  elapsedMilliseconds,
+  normalizeInterviewToolTraceName,
+  ResilienceTracer
+} from "./resilience_trace";
+import {
+  publicVisitorCookie,
+  type VisitorState,
+  VisitorStateRegistry,
+  visitorIdFromCookie
+} from "./visitor_state";
 
 const config = getConfig();
 const clientDirectory = path.resolve("dist/client");
@@ -93,16 +104,15 @@ const verificationResolutionRequestSchema = z.object({
   sessionVersion: z.number().int().nonnegative()
 });
 
-let currentSession: FormSession | null = null;
-let currentCompilation: CompilationResult | null = null;
-let currentCompilationSource: { compilationId: string; document: SourceDocument } | null = null;
-let currentSessionSource: SourceDocument | null = null;
 let formCompiler: OpenAiFormCompiler | null = null;
 let finalVerifier: OpenAiFinalVerifier | null = null;
-let currentSemanticVerification: SemanticVerificationRun | null = null;
-const interviewToolExecutor = new InterviewToolExecutor();
 const memoryVaultStore = new MemoryVaultFileStore(config.workDir);
-let currentMemoryVault = memoryVaultStore.load();
+const resilienceTracer = new ResilienceTracer(config.workDir);
+const publicDemoRateLimiter = new PublicDemoRateLimiter();
+const visitorStates = new VisitorStateRegistry({
+  publicDemo: config.publicDemo,
+  localMemoryVault: config.publicDemo ? createEmptyMemoryVault() : memoryVaultStore.load()
+});
 
 const server = createServer((request, response) => {
   void routeRequest(request, response).catch((error: unknown) => {
@@ -120,11 +130,20 @@ server.listen(config.port, config.host, () => {
 async function routeRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
   const url = new URL(request.url || "/", `http://${request.headers.host || "localhost"}`);
   const method = request.method || "GET";
+  const visitor = visitorStates.resolve(visitorIdFromCookie(request.headers.cookie));
+  const state = visitor.state;
+  if (config.publicDemo && visitor.created) {
+    response.setHeader("Set-Cookie", publicVisitorCookie(visitor.id, isSecureRequest(request)));
+  }
 
   if (method === "GET" && url.pathname === "/api/health") {
     const payload: HealthPayload = {
       status: "ok",
       version: packageJson.version,
+      deployment: {
+        publicDemo: config.publicDemo,
+        storage: config.storageMode
+      },
       openai: {
         configured: Boolean(config.openAiApiKey),
         model: config.openAiModel,
@@ -143,13 +162,21 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
   }
 
   if (method === "GET" && url.pathname === "/api/memory") {
-    sendJson(response, 200, buildMemoryVaultView(currentMemoryVault));
+    sendJson(response, 200, buildMemoryVaultView(state.memoryVault));
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/api/resilience/metric") {
+    const metric = clientResilienceMetricSchema.parse(await readJsonBody(request, 10_000));
+    resilienceTracer.record(metric);
+    response.writeHead(204, { "Cache-Control": "no-store" });
+    response.end();
     return;
   }
 
   if (method === "GET" && url.pathname === "/api/compilation") {
-    if (!currentCompilation) throw new HttpError(404, "No compiled form is available.");
-    sendJson(response, 200, currentCompilation);
+    if (!state.compilation) throw new HttpError(404, "No compiled form is available.");
+    sendJson(response, 200, state.compilation);
     return;
   }
 
@@ -157,12 +184,19 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
     if (!config.openAiApiKey) {
       throw new HttpError(503, "Add OPENAI_API_KEY to the server environment before uploading a form.");
     }
+    enforcePublicModelLimit("compile", visitor.id, request, response);
+    const startedAt = performance.now();
     let document: Awaited<ReturnType<typeof prepareCompilerDocument>>;
     try {
       document = await prepareCompilerDocument(await readJsonBody(request, 15_000_000), {
         sofficeBin: config.sofficeBin
       });
     } catch (error) {
+      resilienceTracer.record({
+        event: "compiler",
+        outcome: "error",
+        durationMs: elapsedMilliseconds(startedAt)
+      });
       if (error instanceof HttpError) throw error;
       const message = error instanceof Error ? error.message : "The uploaded document is invalid.";
       throw new HttpError(400, message);
@@ -172,6 +206,11 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
     try {
       modelResult = await formCompiler.compile(document);
     } catch (error) {
+      resilienceTracer.record({
+        event: "compiler",
+        outcome: "error",
+        durationMs: elapsedMilliseconds(startedAt)
+      });
       const detail = error instanceof Error ? error.message : "Unknown model error.";
       throw new HttpError(502, `The form could not be compiled. ${detail}`);
     }
@@ -185,7 +224,7 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
         })
       : null;
     const compilationId = crypto.randomUUID();
-    currentCompilation = {
+    state.compilation = {
       id: compilationId,
       form,
       documentSummary: modelResult.output.document.summary,
@@ -201,7 +240,7 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
         outputTokens: modelResult.outputTokens
       }
     };
-    currentCompilationSource = {
+    state.compilationSource = {
       compilationId,
       document: {
         fileName: document.fileName,
@@ -209,37 +248,44 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
         bytes: Buffer.from(document.originalBytes)
       }
     };
-    currentSession = null;
-    currentSessionSource = null;
-    currentSemanticVerification = null;
-    sendJson(response, 201, currentCompilation);
+    state.session = null;
+    state.sessionSource = null;
+    state.semanticVerification = null;
+    resilienceTracer.record({
+      event: "compiler",
+      outcome: "success",
+      durationMs: elapsedMilliseconds(startedAt),
+      inputTokens: modelResult.inputTokens,
+      outputTokens: modelResult.outputTokens
+    });
+    sendJson(response, 201, state.compilation);
     return;
   }
 
   if (method === "POST" && url.pathname === "/api/session/compiled") {
     const body = compiledSessionRequestSchema.parse(await readJsonBody(request));
-    if (!currentCompilation || currentCompilation.id !== body.compilationId) {
+    if (!state.compilation || state.compilation.id !== body.compilationId) {
       throw new HttpError(404, "That compiled form is no longer available.");
     }
-    if (!currentCompilation.readiness.ready || !currentCompilation.form) {
+    if (!state.compilation.readiness.ready || !state.compilation.form) {
       throw new HttpError(422, "Resolve the readiness blockers before starting the interview.");
     }
-    currentSession = createFormSession(currentCompilation.form);
-    currentSessionSource = currentCompilationSource?.compilationId === currentCompilation.id
-      ? currentCompilationSource.document
+    state.session = createFormSession(state.compilation.form);
+    state.sessionSource = state.compilationSource?.compilationId === state.compilation.id
+      ? state.compilationSource.document
       : null;
-    currentSemanticVerification = null;
-    interviewToolExecutor.reset();
-    sendJson(response, 201, buildSessionView(currentSession));
+    state.semanticVerification = null;
+    state.interviewToolExecutor.reset();
+    sendJson(response, 201, buildSessionView(state, state.session));
     return;
   }
 
   if (method === "GET" && url.pathname === "/api/session") {
-    if (!currentSession) {
+    if (!state.session) {
       sendJson(response, 404, { error: "No form session is active." });
       return;
     }
-    sendJson(response, 200, buildSessionView(currentSession));
+    sendJson(response, 200, buildSessionView(state, state.session));
     return;
   }
 
@@ -249,61 +295,63 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
       loadFixture(body.fixtureId),
       loadFixtureSource(body.fixtureId)
     ]);
-    currentSession = createFormSession(form);
-    currentSessionSource = source;
-    currentCompilation = null;
-    currentCompilationSource = null;
-    currentSemanticVerification = null;
-    interviewToolExecutor.reset();
-    sendJson(response, 201, buildSessionView(currentSession));
+    state.session = createFormSession(form);
+    state.sessionSource = source;
+    state.compilation = null;
+    state.compilationSource = null;
+    state.semanticVerification = null;
+    state.interviewToolExecutor.reset();
+    sendJson(response, 201, buildSessionView(state, state.session));
     return;
   }
 
   if (method === "POST" && url.pathname === "/api/session/answer") {
     const body = answerRequestSchema.parse(await readJsonBody(request));
-    const session = requireCurrentSession(body.sessionVersion);
-    currentSession = saveTextAnswer(session, body.fieldId, body.value);
-    currentSemanticVerification = null;
-    sendJson(response, 200, buildSessionView(currentSession));
+    const session = requireCurrentSession(state, body.sessionVersion);
+    state.session = saveTextAnswer(session, body.fieldId, body.value);
+    state.semanticVerification = null;
+    sendJson(response, 200, buildSessionView(state, state.session));
     return;
   }
 
   if (method === "POST" && url.pathname === "/api/session/skip") {
     const body = skipRequestSchema.parse(await readJsonBody(request));
-    const session = requireCurrentSession(body.sessionVersion);
-    currentSession = skipAnswer(session, body.fieldId);
-    currentSemanticVerification = null;
-    sendJson(response, 200, buildSessionView(currentSession));
+    const session = requireCurrentSession(state, body.sessionVersion);
+    state.session = skipAnswer(session, body.fieldId);
+    state.semanticVerification = null;
+    sendJson(response, 200, buildSessionView(state, state.session));
     return;
   }
 
   if (method === "POST" && url.pathname === "/api/session/verify") {
     const body = verificationRequestSchema.parse(await readJsonBody(request));
-    const session = requireCurrentSession(body.sessionVersion);
+    const session = requireCurrentSession(state, body.sessionVersion);
     const deterministic = verifySession(session, new Date(), {
-      approvedMemoryClaimIds: approvedMemoryClaimIds()
+      approvedMemoryClaimIds: approvedMemoryClaimIds(state)
     });
     if (deterministic.issues.some((issue) => issue.severity === "blocker" && !issue.resolved)) {
-      currentSemanticVerification = null;
-      sendJson(response, 200, buildSessionView(session));
+      state.semanticVerification = null;
+      sendJson(response, 200, buildSessionView(state, session));
       return;
     }
     if (!config.openAiApiKey) {
-      currentSemanticVerification = null;
-      sendJson(response, 200, buildSessionView(session));
+      state.semanticVerification = null;
+      sendJson(response, 200, buildSessionView(state, session));
       return;
     }
+    enforcePublicModelLimit("verify", visitor.id, request, response);
 
     const expectedSessionId = session.id;
     const expectedVersion = session.version;
     const checkedAt = new Date().toISOString();
+    const startedAt = performance.now();
     finalVerifier ??= new OpenAiFinalVerifier(config);
     try {
       const result = await finalVerifier.verify(session);
-      if (!currentSession || currentSession.id !== expectedSessionId || currentSession.version !== expectedVersion) {
+      if (!state.session || state.session.id !== expectedSessionId || state.session.version !== expectedVersion) {
         throw new HttpError(409, "This form changed while verification was running. Run the check again.");
       }
-      currentSemanticVerification = {
+      state.semanticVerification = {
         sessionId: session.id,
         sessionVersion: session.version,
         status: "completed",
@@ -315,14 +363,26 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
         inputTokens: result.inputTokens,
         outputTokens: result.outputTokens
       };
+      resilienceTracer.record({
+        event: "final_verifier",
+        outcome: "success",
+        durationMs: elapsedMilliseconds(startedAt),
+        inputTokens: result.inputTokens,
+        outputTokens: result.outputTokens
+      });
     } catch (error) {
+      resilienceTracer.record({
+        event: "final_verifier",
+        outcome: "error",
+        durationMs: elapsedMilliseconds(startedAt)
+      });
       if (error instanceof HttpError) throw error;
-      if (!currentSession || currentSession.id !== expectedSessionId || currentSession.version !== expectedVersion) {
+      if (!state.session || state.session.id !== expectedSessionId || state.session.version !== expectedVersion) {
         throw new HttpError(409, "This form changed while verification was running. Run the check again.");
       }
       const detail = error instanceof Error ? error.message : "Unknown verifier error.";
       console.error(`Final verification failed: ${detail}`);
-      currentSemanticVerification = {
+      state.semanticVerification = {
         sessionId: session.id,
         sessionVersion: session.version,
         status: "error",
@@ -335,7 +395,7 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
         outputTokens: null
       };
     }
-    sendJson(response, 200, buildSessionView(session));
+    sendJson(response, 200, buildSessionView(state, session));
     return;
   }
 
@@ -343,50 +403,50 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
   if (method === "POST" && verificationResolutionMatch) {
     const issueId = decodeURIComponent(verificationResolutionMatch[1] as string);
     const body = verificationResolutionRequestSchema.parse(await readJsonBody(request));
-    const session = requireCurrentSession(body.sessionVersion);
-    const issue = buildSessionView(session).verification.issues.find((candidate) => candidate.id === issueId);
+    const session = requireCurrentSession(state, body.sessionVersion);
+    const issue = buildSessionView(state, session).verification.issues.find((candidate) => candidate.id === issueId);
     if (!issue) throw new HttpError(404, "That verification finding is no longer active.");
-    const previousRun = currentSemanticVerification;
+    const previousRun = state.semanticVerification;
     const resolution = resolveVerificationIssue(session, issue, body);
-    currentSession = resolution.session;
+    state.session = resolution.session;
     if (!resolution.answerChanged
       && previousRun?.sessionId === session.id
       && previousRun.sessionVersion === session.version) {
-      currentSemanticVerification = { ...previousRun, sessionVersion: currentSession.version };
+      state.semanticVerification = { ...previousRun, sessionVersion: state.session.version };
     } else {
-      currentSemanticVerification = null;
+      state.semanticVerification = null;
     }
-    sendJson(response, 200, buildSessionView(currentSession));
+    sendJson(response, 200, buildSessionView(state, state.session));
     return;
   }
 
   if (method === "POST" && url.pathname === "/api/memory/remember") {
     const body = rememberAnswerRequestSchema.parse(await readJsonBody(request));
-    const session = requireCurrentSession(body.sessionVersion);
+    const session = requireCurrentSession(state, body.sessionVersion);
     const nextVault = rememberSessionAnswer(
-      currentMemoryVault,
+      state.memoryVault,
       session,
       body.fieldId,
       body.subject,
       { channel: "ui" }
     );
-    persistMemoryVault(nextVault);
-    sendJson(response, 200, buildMemoryMutationResponse());
+    persistMemoryVault(state, nextVault);
+    sendJson(response, 200, buildMemoryMutationResponse(state));
     return;
   }
 
   if (method === "POST" && url.pathname === "/api/memory/apply") {
     const body = applyMemoryRequestSchema.parse(await readJsonBody(request));
-    const session = requireCurrentSession(body.sessionVersion);
-    currentSession = confirmMemoryClaimForSession(
+    const session = requireCurrentSession(state, body.sessionVersion);
+    state.session = confirmMemoryClaimForSession(
       session,
-      currentMemoryVault,
+      state.memoryVault,
       body.fieldId,
       body.claimId,
       { channel: "ui" }
     );
-    currentSemanticVerification = null;
-    sendJson(response, 200, buildMemoryMutationResponse());
+    state.semanticVerification = null;
+    sendJson(response, 200, buildMemoryMutationResponse(state));
     return;
   }
 
@@ -394,35 +454,50 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
   if (memoryClaimMatch && method === "PATCH") {
     const claimId = z.string().uuid().parse(decodeURIComponent(memoryClaimMatch[1] as string));
     const body = correctMemoryRequestSchema.parse(await readJsonBody(request));
-    persistMemoryVault(correctMemoryClaim(currentMemoryVault, claimId, body.value));
-    sendJson(response, 200, buildMemoryMutationResponse());
+    persistMemoryVault(state, correctMemoryClaim(state.memoryVault, claimId, body.value));
+    sendJson(response, 200, buildMemoryMutationResponse(state));
     return;
   }
 
   if (memoryClaimMatch && method === "DELETE") {
     const claimId = z.string().uuid().parse(decodeURIComponent(memoryClaimMatch[1] as string));
-    persistMemoryVault(forgetMemoryClaim(currentMemoryVault, claimId));
-    sendJson(response, 200, buildMemoryMutationResponse());
+    persistMemoryVault(state, forgetMemoryClaim(state.memoryVault, claimId));
+    sendJson(response, 200, buildMemoryMutationResponse(state));
     return;
   }
 
   if (method === "POST" && url.pathname === "/api/interview/tool") {
     const body = interviewToolRequestSchema.parse(await readJsonBody(request));
-    const session = requireCurrentSession();
-    const execution = interviewToolExecutor.execute(body, session, currentMemoryVault);
-    if (execution.vault.version !== currentMemoryVault.version) {
+    const session = requireCurrentSession(state);
+    const startedAt = performance.now();
+    const execution = state.interviewToolExecutor.execute(body, session, state.memoryVault);
+    if (execution.vault.version !== state.memoryVault.version) {
       try {
-        persistMemoryVault(execution.vault);
+        persistMemoryVault(state, execution.vault);
       } catch (error) {
-        interviewToolExecutor.reset();
+        state.interviewToolExecutor.reset();
+        resilienceTracer.record({
+          event: "interview_tool",
+          outcome: "error",
+          durationMs: elapsedMilliseconds(startedAt),
+          tool: normalizeInterviewToolTraceName(body.name),
+          cached: execution.cached
+        });
         throw error;
       }
     }
-    if (execution.session.version !== session.version) currentSemanticVerification = null;
-    currentSession = execution.session;
+    if (execution.session.version !== session.version) state.semanticVerification = null;
+    state.session = execution.session;
+    resilienceTracer.record({
+      event: "interview_tool",
+      outcome: execution.output.ok ? "success" : "error",
+      durationMs: elapsedMilliseconds(startedAt),
+      tool: normalizeInterviewToolTraceName(body.name),
+      cached: execution.cached
+    });
     sendJson(response, 200, {
       output: execution.output,
-      view: buildSessionView(currentSession),
+      view: buildSessionView(state, state.session),
       cached: execution.cached
     });
     return;
@@ -432,9 +507,10 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
     if (!config.openAiApiKey) {
       throw new HttpError(503, "Add OPENAI_API_KEY before starting a voice interview.");
     }
-    const session = requireCurrentSession();
+    const session = requireCurrentSession(state);
     const sdp = await readTextBody(request, 200_000);
     if (!sdp.includes("v=0")) throw new HttpError(400, "The WebRTC offer is invalid.");
+    enforcePublicModelLimit("realtime", visitor.id, request, response);
     const formData = new FormData();
     formData.set("sdp", sdp);
     formData.set("session", JSON.stringify(buildRealtimeSessionConfig(session, config)));
@@ -444,16 +520,37 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
     if (config.openAiSafetyIdentifier) {
       headers["OpenAI-Safety-Identifier"] = config.openAiSafetyIdentifier;
     }
-    const upstream = await fetch("https://api.openai.com/v1/realtime/calls", {
-      method: "POST",
-      headers,
-      body: formData
-    });
+    const startedAt = performance.now();
+    let upstream: Response;
+    try {
+      upstream = await fetch("https://api.openai.com/v1/realtime/calls", {
+        method: "POST",
+        headers,
+        body: formData
+      });
+    } catch {
+      resilienceTracer.record({
+        event: "realtime_connection",
+        outcome: "error",
+        durationMs: elapsedMilliseconds(startedAt)
+      });
+      throw new HttpError(502, "The voice interview could not connect. Please try again.");
+    }
     const body = await upstream.text();
     if (!upstream.ok) {
+      resilienceTracer.record({
+        event: "realtime_connection",
+        outcome: "error",
+        durationMs: elapsedMilliseconds(startedAt)
+      });
       console.error(`OpenAI Realtime call failed (${upstream.status}).`);
       throw new HttpError(502, "The voice interview could not connect. Please try again.");
     }
+    resilienceTracer.record({
+      event: "realtime_connection",
+      outcome: "success",
+      durationMs: elapsedMilliseconds(startedAt)
+    });
     response.writeHead(200, {
       "Cache-Control": "no-store",
       "Content-Type": "application/sdp",
@@ -464,40 +561,64 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
   }
 
   if (method === "DELETE" && url.pathname === "/api/session") {
-    currentSession = null;
-    currentSessionSource = null;
-    currentSemanticVerification = null;
-    interviewToolExecutor.reset();
+    state.session = null;
+    state.sessionSource = null;
+    state.semanticVerification = null;
+    state.interviewToolExecutor.reset();
     response.writeHead(204, { "Cache-Control": "no-store" });
     response.end();
     return;
   }
 
   if (method === "DELETE" && url.pathname === "/api/compilation") {
-    currentCompilation = null;
-    currentCompilationSource = null;
+    state.compilation = null;
+    state.compilationSource = null;
     response.writeHead(204, { "Cache-Control": "no-store" });
     response.end();
     return;
   }
 
   if (method === "POST" && url.pathname === "/api/export/draft") {
-    const session = requireCurrentSession();
-    sendDocument(response, renderDraftDocument(session));
+    const session = requireCurrentSession(state);
+    const startedAt = performance.now();
+    try {
+      const document = renderDraftDocument(session);
+      recordDocumentExport(document, startedAt);
+      sendDocument(response, document);
+    } catch (error) {
+      resilienceTracer.record({
+        event: "document_export",
+        outcome: "error",
+        durationMs: elapsedMilliseconds(startedAt)
+      });
+      throw error;
+    }
     return;
   }
 
   if (method === "POST" && url.pathname === "/api/export/final") {
-    const session = requireCurrentSession();
+    const session = requireCurrentSession(state);
     const verification = buildFinalVerification(session, {
-      approvedMemoryClaimIds: approvedMemoryClaimIds(),
+      approvedMemoryClaimIds: approvedMemoryClaimIds(state),
       modelAvailable: Boolean(config.openAiApiKey),
-      semanticRun: currentSemanticVerification
+      semanticRun: state.semanticVerification
     });
     if (!verification.readyForFinalExport) {
       throw new HttpError(422, "Resolve every blocking finding and run final verification before exporting.");
     }
-    sendDocument(response, await renderVerifiedDocument(session, currentSessionSource));
+    const startedAt = performance.now();
+    try {
+      const document = await renderVerifiedDocument(session, state.sessionSource);
+      recordDocumentExport(document, startedAt);
+      sendDocument(response, document);
+    } catch (error) {
+      resilienceTracer.record({
+        event: "document_export",
+        outcome: "error",
+        durationMs: elapsedMilliseconds(startedAt)
+      });
+      throw error;
+    }
     return;
   }
 
@@ -509,23 +630,23 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
   await serveClient(url.pathname, response);
 }
 
-function buildSessionView(session: FormSession): SessionView {
+function buildSessionView(state: VisitorState, session: FormSession): SessionView {
   return {
     session,
     summary: summarizeSession(session),
     verification: buildFinalVerification(session, {
-      approvedMemoryClaimIds: approvedMemoryClaimIds(),
+      approvedMemoryClaimIds: approvedMemoryClaimIds(state),
       modelAvailable: Boolean(config.openAiApiKey),
-      semanticRun: currentSemanticVerification
+      semanticRun: state.semanticVerification
     }),
     nextField: nextOpenField(session),
-    memory: buildSessionMemoryContext(currentMemoryVault, session),
-    exportPlan: buildDocumentExportPlan(session, currentSessionSource)
+    memory: buildSessionMemoryContext(state.memoryVault, session),
+    exportPlan: buildDocumentExportPlan(session, state.sessionSource)
   };
 }
 
-function approvedMemoryClaimIds(): Set<string> {
-  return new Set(currentMemoryVault.claims
+function approvedMemoryClaimIds(state: VisitorState): Set<string> {
+  return new Set(state.memoryVault.claims
     .filter((claim) => claim.consent === "approved")
     .map((claim) => claim.id));
 }
@@ -539,24 +660,51 @@ function buildMemoryVaultView(vault: MemoryVault): MemoryVaultView {
   };
 }
 
-function buildMemoryMutationResponse(): MemoryMutationResponse {
+function buildMemoryMutationResponse(state: VisitorState): MemoryMutationResponse {
   return {
-    memory: buildMemoryVaultView(currentMemoryVault),
-    view: currentSession ? buildSessionView(currentSession) : null
+    memory: buildMemoryVaultView(state.memoryVault),
+    view: state.session ? buildSessionView(state, state.session) : null
   };
 }
 
-function persistMemoryVault(vault: MemoryVault): void {
-  memoryVaultStore.save(vault);
-  currentMemoryVault = vault;
+function persistMemoryVault(state: VisitorState, vault: MemoryVault): void {
+  if (!config.publicDemo) memoryVaultStore.save(vault);
+  state.memoryVault = vault;
 }
 
-function requireCurrentSession(expectedVersion?: number): FormSession {
-  if (!currentSession) throw new HttpError(404, "No form session is active.");
-  if (expectedVersion !== undefined && currentSession.version !== expectedVersion) {
+function requireCurrentSession(state: VisitorState, expectedVersion?: number): FormSession {
+  if (!state.session) throw new HttpError(404, "No form session is active.");
+  if (expectedVersion !== undefined && state.session.version !== expectedVersion) {
     throw new HttpError(409, "This form changed in another request. Refresh and try again.");
   }
-  return currentSession;
+  return state.session;
+}
+
+function enforcePublicModelLimit(
+  operation: PublicModelOperation,
+  visitorId: string,
+  request: IncomingMessage,
+  response: ServerResponse
+): void {
+  if (!config.publicDemo) return;
+  const address = clientAddress(request);
+  const result = publicDemoRateLimiter.consume(operation, visitorId, address);
+  if (result.allowed) return;
+  response.setHeader("Retry-After", String(result.retryAfterSeconds));
+  throw new HttpError(429,
+    "This public demo has reached its temporary AI request limit. Continue with a reviewed sample or try again later.");
+}
+
+function clientAddress(request: IncomingMessage): string {
+  const forwarded = request.headers["x-forwarded-for"];
+  const firstForwarded = Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(",")[0];
+  return firstForwarded?.trim() || request.socket.remoteAddress || "unknown";
+}
+
+function isSecureRequest(request: IncomingMessage): boolean {
+  const forwarded = request.headers["x-forwarded-proto"];
+  const protocol = Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(",")[0];
+  return protocol?.trim().toLowerCase() === "https";
 }
 
 async function readJsonBody(request: IncomingMessage, maxBytes = 1_000_000): Promise<unknown> {
@@ -639,6 +787,17 @@ function sendDocument(response: ServerResponse, document: RenderedDocument): voi
     "X-VocaForm-Source-Preserved": String(document.report.sourcePreserved)
   });
   response.end(document.bytes);
+}
+
+function recordDocumentExport(document: RenderedDocument, startedAt: number): void {
+  resilienceTracer.record({
+    event: "document_export",
+    outcome: "success",
+    durationMs: elapsedMilliseconds(startedAt),
+    renderKind: document.kind,
+    coveragePercent: document.report.coveragePercent,
+    fallbackCount: document.report.fallbackCount
+  });
 }
 
 async function serveClient(pathname: string, response: ServerResponse): Promise<void> {

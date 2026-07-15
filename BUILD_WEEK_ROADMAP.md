@@ -122,7 +122,7 @@ Technological implementation and a coherent product foundation.
 
 **Outcome:** upload a form and receive an evidence-backed, interview-ready schema without manual mapping.
 
-**Status:** Complete — July 14, 2026. The upload pipeline, explicit Sol Responses client, high-detail PDF/DOCX visual input, strict schema, readiness gate, conditional session behavior, deterministic memory-safety guard, and three-form regression suite are complete. The recorded live two-pass evaluation against the then-current 52-field baseline recalled 104/104 field instances and 50/50 required instances, with zero fabricated fields and zero missing dependencies. The current 53-field baseline must be replayed before submission.
+**Status:** Complete — July 14, 2026; live baseline refreshed July 15. The upload pipeline, explicit Sol Responses client, high-detail PDF/DOCX visual input, strict schema, readiness gate, conditional session behavior, deterministic memory-safety guard, and three-form regression suite are complete. The historical two-pass evaluation against the then-current 52-field baseline recalled 104/104 field instances and 50/50 required instances. The current 53-field live replay recalled 53/53 expected fields and 25/25 required fields, with zero fabricated fields and no missing dependencies; its separate evidence is recorded in `SUBMISSION_EVIDENCE.md`.
 
 ### Work
 
@@ -312,6 +312,8 @@ Design, completeness, and a credible connection to the stated audience.
 
 **Outcome:** the demo is backed by repeatable evidence rather than a single lucky run.
 
+**Status:** Complete — July 15, 2026. `npm run check:resilience` now unifies type checking, linting, unit and adapter tests, compiler/verifier/renderer evaluations, a five-pass isolated north-star resilience evaluation, legacy checks, the production build, and desktop/mobile Playwright accessibility and visual coverage. All five consecutive passes completed without a blocker, with Realtime tool replay deduplicated, reconnect state recovered, the medical PDF rendered at 100% coverage with its source preserved, exactly three explicitly approved safe contact facts stored and reused, and zero sensitive claims retained. Strict local traces record compiler, verifier, Realtime connection/first-response, tool, and export metrics without accepting form content or user identifiers. The complete evidence and loading/recovery matrix are recorded in `RESILIENCE_REPORT.md`.
+
 ### Work
 
 - Add golden evaluations for compiler recall, requiredness, dependencies, memory safety, verifier findings, and rendering coverage.
@@ -335,6 +337,8 @@ Genuine engineering effort and confidence that the application is real.
 
 **Outcome:** judges understand the problem, experience the solution, and can verify how it was built.
 
+**Status:** Pre-submission package complete; exact candidate sign-off pending — July 15, 2026. The current live `gpt-5.6-sol` compiler replay passed 53/53 expected fields and 25/25 required fields with zero fabrication and no missing dependencies. The repository now includes a non-root Docker release with LibreOffice, a manually frozen Render Blueprint, isolated expiring public-demo state, bounded model-backed routes, an explicit release audit and single `npm run check:submission` gate, submission evidence, an unsubmitted Devpost draft, an exact 2:50 narration script, reviewed caption timings, and a deadline-driven handoff checklist. The experience review resolved mobile task order, Dutch language boundaries, public-demo disclosure, forced-colors rendering, and the manual VoiceOver journey. That journey also found and closed ambiguous Memory/verification action names and focus loss after disappearing controls. Export structure was audited and improved; the remaining untagged native-PDF boundary is accepted with a narrowed claim. Feature freeze remains on hold only until the reviewed worktree is committed, its exact candidate SHA is recorded, and the candidate checks are rerun. External account actions remain intentionally open: deploy the frozen commit with a dashboard-supplied key, record and publish the public video, confirm the core task with `/feedback`, add the verified links and legal residence field, and submit by the internal deadline.
+
 ### Work
 
 - Deploy a judge-accessible demo using synthetic data and clear privacy messaging.
@@ -345,7 +349,7 @@ Genuine engineering effort and confidence that the application is real.
   - how Codex accelerated development and where human decisions mattered;
   - setup, sample data, tests, limitations, and privacy boundaries.
 - Add an explicit **Prior work vs. Build Week work** section to the README before submission. Use `cd2b782` as the pre-event baseline and `ca05d21..HEAD` as the Build Week range, distinguish the preserved `src/` and `public/` prototype from the new `app/` rebuild, and preserve the dated commit history as eligibility evidence.
-- Record a narrated video under three minutes:
+- Record a narrated video under three minutes, following the HeyGen capture, edit, and YouTube QA notes in `DEMO_VIDEO_PLAN.md`:
   - problem and user: 20 seconds;
   - upload and Sol compilation: 35 seconds;
   - live voice interview: 65 seconds;
@@ -425,7 +429,7 @@ All four criteria are easy to recognize without requiring judges to infer the pr
 
 ## Immediate next action
 
-Begin Goal 8 by unifying the deterministic evaluations, Realtime reconnect scenarios, privacy-safe traces, and repeated clean-environment demo runs into one resilience report.
+Freeze and push the passing release-candidate commit, import `render.yaml`, verify the public demo signed out, then record the scripted product video before copying the final URLs into Devpost.
 
 ## Source references
 

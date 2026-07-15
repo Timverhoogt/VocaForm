@@ -1,4 +1,5 @@
 import type { FormSession } from "../domain/schemas";
+import { realtimeTranscriptionLanguage } from "../domain/locale";
 import type { AppConfig } from "./config";
 import { buildRealtimeToolDefinitions } from "./interview_tools";
 
@@ -6,7 +7,12 @@ export function buildRealtimeSessionConfig(
   session: FormSession,
   config: AppConfig
 ): Record<string, unknown> {
-  const language = config.openAiRealtimeLanguage || session.form.locale.split("-")[0] || "en";
+  const language = realtimeTranscriptionLanguage(config.openAiRealtimeLanguage || session.form.locale);
+  const transcription: Record<string, unknown> = {
+    model: config.openAiRealtimeTranscriptionModel,
+    prompt: `A calm form interview for “${session.form.title}”. Preserve names, dates, phone numbers, choices, and exact user wording.`
+  };
+  if (language) transcription.language = language;
   const realtimeSession: Record<string, unknown> = {
     type: "realtime",
     model: config.openAiRealtimeModel,
@@ -18,11 +24,7 @@ export function buildRealtimeSessionConfig(
     audio: {
       input: {
         noise_reduction: { type: "near_field" },
-        transcription: {
-          model: config.openAiRealtimeTranscriptionModel,
-          language,
-          prompt: `A calm form interview for “${session.form.title}”. Preserve names, dates, phone numbers, choices, and exact user wording.`
-        },
+        transcription,
         turn_detection: {
           type: "semantic_vad",
           eagerness: "low",
@@ -45,7 +47,7 @@ export function buildRealtimeSessionConfig(
 export function buildRealtimeInstructions(session: FormSession): string {
   return [
     "You are VocaForm's calm voice interviewer.",
-    `Conduct the interview in the user's language; the form locale is ${session.form.locale}.`,
+    `Default to the form language (${session.form.locale}), but continue in another language if the user asks or consistently speaks it.`,
     `The active form is “${session.form.title}”.`,
     "Ask one short question at a time. Sound warm, direct, and unhurried.",
     "At startup or after reconnecting, call get_interview_context before speaking.",

@@ -1,4 +1,4 @@
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, PDFHexString, PDFName, PDFString } from "pdf-lib";
 import { describe, expect, it } from "vitest";
 import { readZip } from "../../src/docx_package.mjs";
 import { extractParagraphs } from "../../src/docx_text.mjs";
@@ -34,6 +34,7 @@ describe("Goal 6 document renderer", () => {
       sourcePreserved: false,
       completionSummaryInserted: false
     });
+    expect(docxEntryXml(rendered.bytes, "word/styles.xml")).toContain('<w:lang w:val="en-US"/>');
   });
 
   it("round-trips every school answer into its DOCX location without changing the source", async () => {
@@ -68,6 +69,7 @@ describe("Goal 6 document renderer", () => {
       expect(outputText).toContain(`Recorded answer for ${field.id}`);
     }
     expect(outputText).not.toContain("Completion summary");
+    expect(docxEntryXml(rendered.bytes, "word/styles.xml")).toContain('<w:lang w:val="nl-NL"/>');
     expect(rendered.bytes.equals(sourceBytes)).toBe(false);
   });
 
@@ -107,6 +109,13 @@ describe("Goal 6 document renderer", () => {
     expect(outputForm.getTextField("current_medications").getText()).toBe("None");
     expect(outputForm.getRadioGroup("has_allergies").getSelected()).toBe("Yes");
     expect(outputForm.getTextField("allergy_details").getText()).toBe("Penicillin - rash");
+    expect(output.catalog.lookupMaybe(PDFName.of("Lang"), PDFString, PDFHexString)?.decodeText()).toBe("en-US");
+    expect(output.catalog.getOrCreateViewerPreferences().getDisplayDocTitle()).toBe(true);
+    expect(outputForm.getFields().map((field) => field.acroField.dict.lookupMaybe(
+      PDFName.of("TU"),
+      PDFString,
+      PDFHexString
+    )?.decodeText())).toEqual(listFields(form).map((field) => field.label));
   });
 
   it("keeps compatible PDF fields in place and appends an explicit fallback page", async () => {
@@ -263,7 +272,11 @@ function changeField(
 }
 
 function docxDocumentXml(bytes: Buffer): string {
-  const entry = readZip(bytes).find((candidate: { name: string }) => candidate.name === "word/document.xml");
+  return docxEntryXml(bytes, "word/document.xml");
+}
+
+function docxEntryXml(bytes: Buffer, name: string): string {
+  const entry = readZip(bytes).find((candidate: { name: string }) => candidate.name === name);
   if (!entry) throw new Error("DOCX body missing.");
   return entry.data.toString("utf8");
 }

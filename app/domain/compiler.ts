@@ -8,6 +8,7 @@ import {
   type FormField
 } from "./schemas";
 import { isSafeMemoryCandidate } from "./memory";
+import { canonicalizeLocale, normalizeLocale } from "./locale";
 
 const LOW_CONFIDENCE_BLOCKER = 0.7;
 const LOW_CONFIDENCE_WARNING = 0.85;
@@ -38,7 +39,7 @@ export function toFormDefinition(output: FormCompilerOutput, source: Compilation
     id: slug(output.document.title),
     version: "ai-compiled-1",
     title: output.document.title,
-    locale: output.document.locale,
+    locale: normalizeLocale(output.document.locale),
     source: {
       fileName: source.fileName,
       format: source.format
@@ -71,6 +72,10 @@ export function evaluateCompilation(
   if (fields.length === 0) {
     issues.push(issue("document:no-fields", "blocker", "no_fields", null,
       "No form questions were found. Try a clearer scan or a different file."));
+  }
+  if (!canonicalizeLocale(output.document.locale)) {
+    issues.push(issue("document:invalid-locale", "warning", "invalid_locale", null,
+      "The form language could not be identified reliably. Voice will use automatic language detection."));
   }
   for (const id of new Set(duplicateIds)) {
     issues.push(issue(`${id}:duplicate`, "blocker", "duplicate_id", null,

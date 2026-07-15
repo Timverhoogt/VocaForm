@@ -49,10 +49,20 @@ test("Goal 4 memory remains explicit and visually traceable", async ({ page, req
   await expect(page.locator(".remember-candidate-card")).toHaveCount(3);
   await expectVisual(page, "activity-review-candidates.png");
 
-  for (const label of ["Parent or guardian name", "Daytime phone number", "Parent or guardian email"]) {
+  const rememberLabels = ["Parent or guardian name", "Daytime phone number", "Parent or guardian email"];
+  for (const [index, label] of rememberLabels.entries()) {
     const card = page.locator(".remember-candidate-card").filter({ hasText: label });
-    await card.getByRole("button", { name: "Remember" }).click();
+    await card.getByRole("button", { name: `Remember ${label}`, exact: true }).click();
     await expect(card).toHaveCount(0);
+    if (index < rememberLabels.length - 1) {
+      await expect(page.getByRole("button", {
+        name: `Remember ${rememberLabels[index + 1]}`,
+        exact: true
+      })).toBeFocused();
+    } else {
+      await expect(experience.getByRole("button", { name: "Continue answering", exact: true }))
+        .toBeFocused();
+    }
   }
 
   const memoryButton = page.locator(".memory-button");
@@ -64,10 +74,16 @@ test("Goal 4 memory remains explicit and visually traceable", async ({ page, req
   await expect(dialog.locator(".drawer-close")).toBeFocused();
 
   const emailClaim = dialog.locator(".vault-claim").filter({ hasText: "Parent or guardian email" });
-  await emailClaim.getByRole("button", { name: "Correct" }).click();
-  await emailClaim.getByRole("textbox", { name: "Correct remembered value" })
+  await emailClaim.getByRole("button", { name: "Correct Parent or guardian email", exact: true }).click();
+  await emailClaim.getByRole("textbox", {
+    name: "Correct remembered value for Parent or guardian email",
+    exact: true
+  })
     .fill("alex.updated@example.test");
-  await emailClaim.getByRole("button", { name: "Save correction" }).click();
+  await emailClaim.getByRole("button", {
+    name: "Save correction for Parent or guardian email",
+    exact: true
+  }).click();
   await expect(emailClaim.locator(".claim-value")).toHaveText("alex.updated@example.test");
   await expectLocatorVisual(
     dialog,
@@ -92,14 +108,23 @@ test("Goal 4 memory remains explicit and visually traceable", async ({ page, req
     .toBe(true);
   await expectVisual(page, "school-memory-suggestions.png");
 
-  for (const label of [
+  const suggestionLabels = [
     "Namen van ouders/verzorgers",
     "Telefoonnummer ouder/verzorger",
     "E-mailadres ouder/verzorger"
-  ]) {
+  ];
+  for (const [index, label] of suggestionLabels.entries()) {
     const card = page.locator(".memory-suggestion-card").filter({ hasText: label });
-    await card.getByRole("button", { name: "Use this" }).click();
+    await card.getByRole("button", { name: `Use remembered ${label}`, exact: true }).click();
     await expect(card).toHaveCount(0);
+    if (index < suggestionLabels.length - 1) {
+      await expect(page.getByRole("button", {
+        name: `Use remembered ${suggestionLabels[index + 1]}`,
+        exact: true
+      })).toBeFocused();
+    } else {
+      await expect(experience.getByRole("button", { name: /Start answering/ })).toBeFocused();
+    }
   }
 
   await page.locator(".journey").getByRole("button", { name: "Review" }).click();
@@ -111,7 +136,7 @@ test("Goal 4 memory remains explicit and visually traceable", async ({ page, req
   await memoryButton.click();
   await expect(dialog).toBeVisible();
   const phoneClaim = dialog.locator(".vault-claim").filter({ hasText: "Daytime phone number" });
-  await phoneClaim.getByRole("button", { name: "Forget" }).click();
+  await phoneClaim.getByRole("button", { name: "Forget Daytime phone number", exact: true }).click();
   await expect(dialog.locator(".vault-claim")).toHaveCount(2);
   await dialog.getByRole("button", { name: "Close memory" }).click();
 
@@ -186,6 +211,8 @@ async function expectLocatorVisual(locator: Locator, name: string, mask: Locator
 async function settleVisuals(page: Page): Promise<void> {
   await expect(page.locator(".notice.busy")).toHaveCount(0);
   await page.evaluate(async () => {
+    document.documentElement.style.scrollBehavior = "auto";
+    window.scrollTo(0, 0);
     await document.fonts.ready;
     await new Promise<void>((resolve) => {
       window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));

@@ -1,62 +1,117 @@
 # VocaForm
 
-VocaForm turns everyday paperwork into a calm conversation. It understands a form, interviews the user for the information it needs, verifies the answers, and returns a completed document. Reusable facts are remembered only with explicit permission.
+> **One form. One conversation. Done.**
 
-This repository is being rebuilt for OpenAI Build Week on the `codex/build-week-rebuild` branch. The detailed execution contract lives in [BUILD_WEEK_ROADMAP.md](./BUILD_WEEK_ROADMAP.md).
+VocaForm turns everyday paperwork into a calm, accessible conversation. Upload a PDF, Word document, or text form; answer only the questions it needs; review what was understood; and download a completed document. Reusable contact details are remembered only after explicit consent.
 
-## Current vertical slice
+**Built for [OpenAI Build Week](https://openai.devpost.com/) · Apps for Your Life**
 
-Goals 1–7 provide the trustworthy foundation, AI form compiler, live voice interview, user-owned memory, guarded final verification, useful completed documents, and an accessibility-led product experience:
+[Build Week roadmap](./BUILD_WEEK_ROADMAP.md) · [Submission evidence](./SUBMISSION_EVIDENCE.md) · [Resilience report](./RESILIENCE_REPORT.md) · [Three-minute demo plan](./DEMO_VIDEO_PLAN.md)
 
-- a React/Vite experience organized around **Upload → Talk → Review → Download**;
-- canonical TypeScript and Zod contracts for forms, answers, sessions, memory, and verification;
-- deterministic session progress and required-field validation;
-- a small TypeScript HTTP API with optimistic session-version checks;
-- fixture-driven tests;
-- adapters around the proven DOCX package, anchor matching, report, and legacy review code;
-- polished draft answer packets plus format-aware verified export from the new application;
-- PDF, DOCX, TXT, and Markdown upload through the server;
-- explicit `gpt-5.6-sol` compilation through the Responses API;
-- strict Zod-derived Structured Outputs for fields, dependencies, validation, evidence, memory candidates, and render targets;
-- high-detail PDF inputs, a retained DOCX plus visual PDF companion, and an exact AcroForm field inventory;
-- a human-readable readiness check that blocks unsupported evidence and unsafe schemas;
-- three synthetic golden-form evaluations for recall, requiredness, dependencies, and fabrication;
-- a recorded two-pass live Sol result of 104/104 expected field instances against the then-current 52-field baseline, 50/50 required instances, zero fabricated fields, and zero missing dependencies; the current 53-field set must be replayed before submission;
-- a browser WebRTC conversation through the unified Realtime endpoint, with the API key kept on the server;
-- eight Realtime function tools for context, atomic answer saves, unknown/skip handling, explicit memory checks, remember/apply consent, remaining questions, and safe completion;
-- exact voice provenance, canonical value validation, optimistic session versions, and idempotent tool-call retries;
-- automatic interruption handling plus bounded reconnect recovery from the first unresolved question;
-- visible listening, thinking, speaking, saving, reconnecting, error, and complete states, with an equal keyboard-accessible text path;
-- semantic page, navigation, region, complementary, dialog, status, alert, progress, heading, and form-control structure with focus moved to each new stage or question;
-- action-specific live announcements and retryable error cards instead of a generic loading state;
-- user-facing cards and plain-language service messaging with no model, provider, key, or configuration controls in the product journey;
-- at least 44 CSS-pixel action targets, WCAG AA contrast, high-contrast/forced-color support, reduced motion, and reflow without horizontal scrolling at 200% text size;
-- an axe-checked, role/name-driven walkthrough that completes the prepared eight-question form and downloads its draft using only the keyboard on desktop and mobile Chromium;
-- a typed, application-owned Memory Vault persisted in the ignored local `work/` directory;
-- explicit UI and verbal approval before a claim is stored, with source form, source answer, original wording, consent channel, and confirmation time;
-- safe contact-only remember prompts, while sensitive, medical, identity, consent, support, and long free-form answers are excluded by default;
-- a visible Memory view with remember, correct, and forget controls;
-- per-value confirmation before an approved claim is applied to another form, with the claim ID retained on every reused answer;
-- a deterministic three-fact handoff from the activity-permission sample to the school sample;
-- deterministic final checks for required answers, canonical types and constraints, dependencies, renderer readiness, confidence, and provenance;
-- a non-mutating `gpt-5.6-sol` verifier for contradictions, ambiguous answers, and unsupported normalized claims;
-- inline confirm, correct, answer, and intentionally-leave-blank actions with explicit user-correction provenance;
-- separate draft and verified export routes, with final export locked until a current semantic pass has no unresolved blocker;
-- five seeded deterministic verifier cases at 100% recall and 100% final-export gating;
-- a live standard/high versus Pro comparison in which both modes caught 3/3 semantic cases with zero extras, so the faster, lower-token standard mode remains selected;
-- in-place answer placement into copied DOCX sources and named fields in copied AcroForm PDFs;
-- explicit append fallbacks for individual unmatched targets and a polished, section-matched DOCX answer packet for non-writable sources;
-- exact renderer coverage and source-preservation reports, with 45/45 native demo answers placed and every output page visually inspected.
+<p align="center">
+  <img src="./app/e2e/memory_flow.visual.spec.ts-snapshots/landing-desktop-chromium-darwin.png" alt="VocaForm's accessible upload screen, with reviewed sample forms and the Upload, Talk, Review, Download journey" width="900">
+</p>
 
-The mandatory Sol semantic pass on the verified-export path is provisional. Proper user testing will determine whether this review should remain required, become default-on but skippable, or be offered only as an optional second opinion. Deterministic validation remains mandatory regardless of that decision; user feedback should weigh error prevention against comprehensibility, false positives, waiting time, privacy concerns, and added interaction cost.
+## The problem
 
-The included activity-permission, school-intake, and medical-intake fixtures are synthetic and reviewed. The school form contains 37 interview questions, including 15 required fields, plus profile fields that can receive individually confirmed memory. The medical fixture is a fillable PDF with eight named AcroForm fields. Upload remains the primary path; the fixtures provide deterministic offline testing and complete local Goal 4, Goal 5, and Goal 6 demonstrations.
+Paperwork assumes that everyone can comfortably read dense administrative language, type repeated details, understand conditional questions, and check a document for omissions. That creates avoidable friction for people with disabilities, low digital confidence, language barriers, limited time, or simply too many forms to complete.
 
-## OpenAI API configuration
+A generic chatbot is not enough. A useful form assistant must stay grounded in the source, preserve exact answers, make uncertainty visible, require consent before reusing personal information, and return a real document—not just a transcript.
 
-VocaForm uses the OpenAI API directly. It does not use a ChatGPT or Codex subscription as an application credential.
+## What VocaForm does
 
-Copy the environment template and set your key locally:
+1. **Upload** — Accepts PDF, DOCX, TXT, and Markdown forms, with three reviewed synthetic samples available offline.
+2. **Understand** — GPT-5.6 Sol compiles an unfamiliar form into a strict, evidence-backed schema containing fields, requiredness, dependencies, source evidence, and render targets.
+3. **Talk** — OpenAI Realtime conducts a natural speech-to-speech interview. Versioned application tools save validated answers as the conversation happens; a keyboard-accessible text path provides the same core journey.
+4. **Review** — Deterministic checks find missing or invalid answers, then a separate non-mutating GPT-5.6 Sol pass can flag contradictions, ambiguity, and unsupported normalization.
+5. **Download** — VocaForm fills copied DOCX and AcroForm PDF sources when safe, or produces a clearly identified, section-matched DOCX answer packet.
+6. **Reuse—only by choice** — Eligible contact facts can be remembered, corrected, forgotten, and individually confirmed on a later form. Medical and other sensitive answers are excluded by default.
+
+The result is one coherent **Upload → Talk → Review → Download** product journey rather than a collection of model demos.
+
+### Language posture
+
+VocaForm has an English application interface and language-aware form handling. Form locales are validated and canonicalized as BCP 47 tags; form-derived titles, prompts, examples, labels, and source excerpts retain that language boundary for assistive technology, and right-to-left content receives automatic text direction. Realtime defaults to the form language and supplies a two-letter transcription hint only when the locale has a valid ISO-639-1 language subtag.
+
+The reviewed submission journeys cover English (`en-US`) and Dutch (`nl-NL`) form content. Other form languages are architecture-level, best-effort support rather than a QA-certified claim. The interface, generated fallback-document chrome, and application-owned status text remain English, and a translated UI, language selector, and full right-to-left journey are follow-up work.
+
+## The trust model
+
+Models can understand, converse, and advise; application code remains authoritative.
+
+| Layer | Responsibility | What it cannot do silently |
+| --- | --- | --- |
+| GPT-5.6 Sol | Compile unfamiliar forms and perform final semantic review | Write answers, approve memory, or unlock export |
+| OpenAI Realtime | Conduct the low-latency voice interview and request tool calls | Bypass field, value, provenance, or session-version validation |
+| TypeScript domain layer | Own answers, dependencies, consent, memory eligibility, verification, and export gates | Accept invalid or stale writes |
+| Document adapters | Fill copied DOCX/PDF sources and report exact placement coverage | Mutate the uploaded source or hide a fallback |
+
+Every accepted answer retains provenance from the document, conversation, confirmed memory, or an explicit user correction. Any change invalidates the previous semantic pass, and verified export is tied to the exact current session version.
+
+## How GPT-5.6 is used
+
+GPT-5.6 Sol is reserved for the two tasks where document-level reasoning matters most:
+
+- **Form compilation:** it receives the source document—plus a high-detail visual companion for layout-sensitive formats—and returns strict Structured Outputs with source evidence and rendering targets.
+- **Final verification:** it receives the typed form and answer state, reports only structured semantic findings, uses `store: false`, and cannot mutate the session.
+
+Realtime handles conversation because latency matters there. Deterministic application logic owns state, consent, validation, memory, and rendering because user control matters there. A live evaluation found no correctness gain from Pro verification mode on the synthetic semantic cases, so the faster, lower-token standard/high configuration remains the default.
+
+## How Codex accelerated the build
+
+Codex with GPT-5.6 was the development collaborator, not an application runtime dependency. It accelerated:
+
+- the rebuild from a local JavaScript prototype into a modular React and TypeScript application;
+- canonical Zod contracts and provider-independent session behavior;
+- parity adapters around proven DOCX and form-state code;
+- fixture-driven compiler, verifier, renderer, accessibility, and resilience evaluations;
+- recovery handling for interruption, retries, duplicate tool calls, and reconnects;
+- the accessibility-led UI, Playwright journeys, and visual-regression suite.
+
+Human decisions defined the product boundaries: models do not own state, memory is opt-in and application-owned, sensitive answers are excluded by default, verification is non-mutating, fallbacks are explicit, and unsupported production-healthcare claims remain out of scope. The full decision trail and measurable exit criteria are recorded in [BUILD_WEEK_ROADMAP.md](./BUILD_WEEK_ROADMAP.md).
+
+## Prior work vs. Build Week work
+
+VocaForm existed as a proven local Node.js prototype before OpenAI Build Week. The dated pre-event baseline is commit [`cd2b782`](https://github.com/Timverhoogt/VocaForm/commit/cd2b782). Its legacy server, browser UI, importers, Realtime connection, form state, and DOCX primitives remain in `src/` and `public/` so their behavior can be tested during replacement.
+
+The Build Week range is [`ca05d21..HEAD`](https://github.com/Timverhoogt/VocaForm/compare/ca05d21...codex/build-week-rebuild) on `codex/build-week-rebuild`. The new `app/` tree, TypeScript domain and API, GPT-5.6 compiler and verifier, validated Realtime tools, consent-based Memory Vault, PDF/DOCX renderers, accessible product journey, golden evaluations, and resilience instrumentation were built during the event. The preserved prototype is not presented as new Build Week work; it is wrapped behind tested adapters until equivalent behavior is proven.
+
+The repository history is intentionally preserved so judges can inspect the pre-event baseline and the Build Week changes independently.
+
+## Judge quick start
+
+### Requirements
+
+- Node.js 20 or newer
+- npm
+- Chromium only for the optional browser test suite
+- LibreOffice only when visually compiling arbitrary DOCX uploads; set `SOFFICE_BIN` if `soffice` is not on `PATH`
+
+### Run the reviewed samples without an API key
+
+```bash
+git clone https://github.com/Timverhoogt/VocaForm.git
+cd VocaForm
+npm install
+npm run dev
+```
+
+Open [http://127.0.0.1:5173](http://127.0.0.1:5173). The client proxies API calls to `http://127.0.0.1:5177`.
+
+No key is required to open the reviewed synthetic forms, use the text interview, exercise deterministic validation and memory consent, or download a marked draft. A useful offline test path is:
+
+1. Open **Community Garden Day permission form**.
+2. Answer the guardian name, phone, and email fields through the text path.
+3. In Review or Memory, explicitly choose **Remember** for those contact facts.
+4. Close the form and open **Elementary school intake**.
+5. Confirm each Memory Vault suggestion; no value is applied before confirmation.
+6. Correct or forget a claim from **Memory**, then verify it is not silently reused.
+
+Without an API key, upload compilation, voice, and the final Sol semantic pass are explicitly unavailable; the deterministic and draft paths remain usable.
+
+### Run the complete AI journey
+
+Copy the environment template and add a server-side OpenAI API key:
 
 ```bash
 cp .env.example .env
@@ -64,46 +119,17 @@ cp .env.example .env
 
 ```dotenv
 OPENAI_API_KEY=your-key-here
-OPENAI_MODEL=gpt-5.6-sol
-OPENAI_REASONING_EFFORT=high
-OPENAI_VERIFICATION_MODEL=gpt-5.6-sol
-OPENAI_VERIFICATION_REASONING_MODE=standard
-OPENAI_REALTIME_MODEL=gpt-realtime-2.1
-OPENAI_REALTIME_VOICE=marin
-OPENAI_REALTIME_SPEED=0.95
-OPENAI_REALTIME_REASONING_EFFORT=low
-OPENAI_REALTIME_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe
 ```
 
-Never commit `.env` or expose the API key to browser code. The server reports only whether a key is configured. Uploaded source bytes are copied into process memory only for the active compilation and session so the renderer can preserve the original; they are never returned through the JSON API or written to the repository. Compiler and verifier responses use `store: false`. The reviewed samples remain available without a key so deterministic domain and document paths can be tested independently. Without a key, draft export stays available and verified export remains explicitly unavailable.
+The checked-in defaults select `gpt-5.6-sol` for compilation and verification and `gpt-realtime-2.1` for conversation. All model and server overrides are documented in [.env.example](./.env.example).
 
-DOCX visual compilation uses LibreOffice in headless mode. If `soffice` is not on `PATH`, set `SOFFICE_BIN` to its absolute path.
-
-By default, approved memory is stored at `work/memory_vault.local.json`, which is ignored by Git and written with user-only file permissions. Set `VOCAFORM_WORK_DIR` to place all local Memory Vault state in another private directory. This Build Week local store is not encrypted, so it is not a production store for sensitive personal data.
-
-## Run locally
-
-Requirements:
-
-- Node.js 20 or newer
-- npm
-
-Install and start the development servers:
+Generate the reviewed medical PDF and school DOCX sources:
 
 ```bash
-npm install
-npm run dev
+npm run fixtures:rendering
 ```
 
-Open `http://127.0.0.1:5173`. Vite serves the client and proxies `/api` requests to the TypeScript API on port `5177`.
-
-To exercise memory without an API call:
-
-1. Open the reviewed Community Garden Day permission sample.
-2. Answer the parent or guardian name, phone, and email fields, then choose **Remember** for each in Review or Memory.
-3. Close the form and open the elementary-school sample.
-4. Confirm each of the three Memory Vault suggestions. No value is applied before that confirmation.
-5. Open **Memory** to correct or forget a fact; a forgotten fact will not appear in a new school session.
+Then upload `work/golden/medical-intake.pdf` to exercise the north-star journey: source-grounded compilation, live voice answers, deterministic and semantic review, and native AcroForm export. The generated files and all local runtime state remain under ignored `work/` storage.
 
 To build and serve the production bundle:
 
@@ -112,171 +138,133 @@ npm run build
 npm start
 ```
 
-Then open `http://127.0.0.1:5177`.
+Open [http://127.0.0.1:5177](http://127.0.0.1:5177).
 
-## Quality gate
+### Deploy the synthetic judge preview
 
-Run the complete verification suite:
+The repository includes a Docker image and a frozen Render Blueprint in [`render.yaml`](./render.yaml). The container installs LibreOffice for layout-sensitive DOCX compilation, runs as an unprivileged user, binds to `0.0.0.0`, and exposes `/api/health`. Import the Blueprint, provide `OPENAI_API_KEY` through the Render dashboard prompt, and deploy the exact release-candidate commit. The secret is never stored in the Blueprint.
+
+`VOCAFORM_PUBLIC_DEMO=true` adds a visible synthetic-data warning and isolates each browser in an opaque, HTTP-only demo session. Active forms, retained source bytes, verification state, and Memory Vault changes are not visible to other visitors and are never written to demo storage. Public sessions are bounded to 100 active visitors, expire after at most two hours, and may disappear on a server restart. Expensive anonymous model routes are rate-limited per visitor and network address (compilation 3/hour; verification and Realtime 10/hour). The free Render instance also uses an ephemeral filesystem and can cold-start after idling; this remains a judge preview, not production or private-data storage. Full deployment and signed-out QA steps are in [SUBMISSION_CHECKLIST.md](./SUBMISSION_CHECKLIST.md).
+
+## Evidence, not just a happy path
+
+The repository contains synthetic golden forms, answer keys, deterministic evaluations, and end-to-end accessibility journeys. The current release evidence is recorded in [RESILIENCE_REPORT.md](./RESILIENCE_REPORT.md).
+
+| Check | Recorded result |
+| --- | --- |
+| Golden compiler baseline | 53/53 fields, 25/25 required fields, zero fabrication, no missing dependencies |
+| Live GPT-5.6 Sol replay, July 15 | 53/53 fields, 25/25 required fields, zero fabrication, no missing dependencies |
+| Final-verifier fixtures | 100% of five seeded blocker classes detected and gated |
+| Native renderer coverage | 45/45 demo answers placed; original sources preserved |
+| Repeated north-star resilience | 5/5 isolated passes with duplicate-call suppression and reconnect recovery |
+| Safe memory journey | Exactly three approved contact claims reused; zero sensitive claims stored |
+| Unit and adapter tests | 72/72 across 18 Vitest files |
+| Desktop/mobile browser suite | 16/16 Playwright journeys and visual checks |
+
+These are results on reviewed synthetic fixtures, not claims of clinical accuracy or universal form support. The current live `gpt-5.6-sol` replay is recorded separately from the deterministic approved-output score in [SUBMISSION_EVIDENCE.md](./SUBMISSION_EVIDENCE.md) and its privacy-safe JSON evidence file. The earlier two-pass run on the then-current 52-field set remains historical evidence rather than being combined with the current result.
+
+Run the complete deterministic quality gate:
 
 ```bash
 npm run check
 ```
 
-It runs:
+For the submission-grade gate, including the production build and desktop/mobile Playwright suite:
 
-- TypeScript type checking;
-- ESLint with type-aware rules and React hooks checks;
-- Vitest fixture and legacy-adapter tests;
-- compiler golden-form evaluation;
-- deterministic final-verifier evaluation and export-gate checks;
-- deterministic DOCX, fillable-PDF, and answer-packet rendering evaluation;
-- the original schema validator;
-- syntax checks for the legacy server and browser application.
+```bash
+npx playwright install chromium
+npm run check:resilience
+```
 
-Useful individual commands:
+For the final pre-submission gate, including the release-document, deployment, licensing, prior-work, and live-evidence audit:
+
+```bash
+npm run check:submission
+```
+
+Useful focused commands:
 
 ```bash
 npm run typecheck
 npm run lint
 npm run test
-npm run test:accessibility
-npm run test:visual
-npm run build
 npm run eval:compiler
 npm run eval:verifier
 npm run eval:renderer
-npm run check:legacy
-```
-
-To write the synthetic school DOCX and medical AcroForm PDF sources into ignored local storage for manual testing:
-
-```bash
-npm run fixtures:rendering
-```
-
-## Visual browser testing
-
-Playwright covers the complete Goal 4 memory journey, Goal 5 verification correction flow, Goal 6 output-format messaging, and Goal 7 accessibility journey in Chromium at desktop and Pixel 7 viewports. The suite verifies explicit memory consent, correction, forgetting, stage focus, traceable reused answers, final-export gating, inline blocker resolution, correction provenance, format-aware downloads, actionable error recovery, 44-pixel targets, 200% text reflow, and a pointer-free prepared-form interview. Axe scans the Upload, prepared-form, Talk, Review, Download, and error states and rejects serious or critical WCAG A/AA violations. Each visual checkpoint is compared with committed baselines beside its `*.visual.spec.ts` file.
-
-Install the browser once, then run the visual suite:
-
-```bash
-npx playwright install chromium
+npm run eval:resilience
 npm run test:accessibility
 npm run test:visual
 ```
 
-For interactive debugging or an intentional baseline refresh:
-
-```bash
-npm run test:visual:headed
-npm run test:visual:update
-```
-
-Playwright starts isolated client and API processes on ports `5183` and `5187`, disables OpenAI calls, and stores its private Memory Vault, traces, videos, screenshots, and HTML report under ignored `work/playwright/`. Baselines are platform-specific; review every changed image before committing an update. The visual suite remains separate from `npm run check` so the standard quality gate does not require a downloaded browser binary.
-
-Before submission, record a live two-pass Sol score against the rendered golden documents:
-
-```bash
-npm run eval:compiler:live -- \
-  --medical /path/to/medical-intake.pdf \
-  --school /path/to/school-intake.docx \
-  --permission /path/to/activity-permission.txt \
-  --repeats 2
-```
-
-The live command uses source-evidence identity, the same readiness checks, and the same answer keys as the offline gate. It reports per-run progress and token usage, and fails the process when Goal 2 thresholds are missed.
-
-To replay the Goal 5 standard/high versus Pro comparison against the synthetic semantic cases:
-
-```bash
-npm run eval:verifier:live
-```
-
-The command runs contradiction, unsupported-claim, and ambiguity cases in both modes; rejects unknown field IDs; verifies that every session remains unchanged; and reports recall, extra findings, latency, and tokens. On July 14, 2026, both modes detected 3/3 cases with zero extras. Standard averaged 8.7 seconds and used 3,078 input plus 783 output tokens; Pro averaged 14.3 seconds and used 17,940 input plus 2,458 output tokens. Because Pro produced no correctness improvement, `standard` remains the default.
+The deterministic evaluations do not spend API credits. Live compiler and verifier replays are separate commands so an offline approved output cannot be mistaken for a live-model score.
 
 ## Architecture
 
 ```text
-app/client/                 Accessible React experience
-app/domain/                 Provider-independent form and session contracts
-app/adapters/               Verified DOCX/PDF renderers and proven-code adapters
-app/server/                 TypeScript API, fixture registry, and runtime config
-app/shared/                 Serialized API contracts
-app/evals/                  Golden compiler, verifier, and renderer fixtures and metrics
-app/e2e/                    Playwright journeys and visual-regression baselines
-src/                        Proven legacy import, state, Realtime, and DOCX modules
-public/                     Legacy browser interface and shared VocaForm mark
-data/                       Synthetic reviewed fixture data
+app/client/     Accessible React/Vite product experience
+app/domain/     Provider-independent TypeScript and Zod contracts
+app/adapters/   Proven-code adapters and DOCX/PDF renderers
+app/server/     TypeScript HTTP API and server-only OpenAI configuration
+app/shared/     Serialized client/server contracts
+app/evals/      Golden compiler, verifier, renderer, and resilience fixtures
+app/e2e/        Keyboard, accessibility, memory, verification, and visual journeys
+src/            Preserved pre-event prototype and document primitives
+public/         Preserved legacy UI and shared brand assets
+data/           Reviewed synthetic schemas, profiles, and golden sources
+work/           Ignored local uploads, generated fixtures, memory, and traces
 ```
 
-The domain layer does not import browser, server, or OpenAI code. Provider integrations will translate their output into the canonical schemas before application state changes.
+The domain layer imports no browser, server, or provider code. Provider responses are translated into canonical schemas before application state can change.
 
-## Application API
+## Supported documents and outputs
 
-| Method | Route | Purpose |
+| Source | Understanding | Completed output |
 | --- | --- | --- |
-| `GET` | `/api/health` | Runtime readiness without exposing secrets |
-| `GET` | `/api/fixtures` | Available reviewed sample forms |
-| `POST` | `/api/forms/compile` | Compile an uploaded base64 file with GPT-5.6 Sol |
-| `GET` | `/api/compilation` | Read the current readiness result |
-| `DELETE` | `/api/compilation` | Discard the current compilation |
-| `POST` | `/api/session/fixture` | Start a typed session from a fixture |
-| `POST` | `/api/session/compiled` | Start a session after readiness passes |
-| `GET` | `/api/session` | Read the active session, progress, and verification |
-| `POST` | `/api/session/answer` | Save a text answer with a session-version guard |
-| `POST` | `/api/session/skip` | Mark the current question for later review |
-| `POST` | `/api/session/verify` | Run deterministic checks and, when unblocked, the non-mutating Sol verifier |
-| `POST` | `/api/session/verification/issues/:id/resolve` | Explicitly answer, confirm, correct, or leave blank one active finding |
-| `POST` | `/api/realtime/call` | Exchange a browser WebRTC offer through the server-side unified Realtime endpoint |
-| `POST` | `/api/interview/tool` | Execute a validated, idempotent Realtime interview tool call |
-| `GET` | `/api/memory` | Read approved local claims; proposals are never persisted |
-| `POST` | `/api/memory/remember` | Store one eligible answered contact fact after an explicit UI action |
-| `POST` | `/api/memory/apply` | Apply one approved claim to one form field after confirmation |
-| `PATCH` | `/api/memory/claims/:id` | Correct an approved remembered value for future forms |
-| `DELETE` | `/api/memory/claims/:id` | Forget a claim and remove it from future suggestions |
-| `DELETE` | `/api/session` | Close the local in-memory session |
-| `POST` | `/api/export/draft` | Generate a polished draft DOCX answer packet |
-| `POST` | `/api/export/final` | Fill a copied DOCX/PDF source or generate an explicit answer packet after the current final gate passes |
+| Fillable PDF | Text, high-detail page imagery, and exact AcroForm inventory | Answers placed into named fields in a copied PDF |
+| DOCX | Extracted structure plus a visual PDF companion when LibreOffice is available | Answers placed at matched anchors in a copied DOCX |
+| TXT / Markdown | Source text and explicit field evidence | Section-matched DOCX answer packet |
+| Non-writable or unmatched source | Same evidence-backed interview schema | Explicit answer packet or per-field fallback; never silent omission |
 
-## Privacy boundaries
+Scanned, non-AcroForm PDFs currently receive an answer packet rather than a pixel-perfect page overlay.
 
-- API keys and real form data must never be committed.
-- The repository contains only synthetic example profiles and form data.
-- Uploaded source bytes, compilations, and active sessions stay in process memory and are discarded when their associated state is cleared or the server exits.
-- Rendering always works on copied bytes and verifies that the retained source is byte-for-byte unchanged.
-- OpenAI API keys remain server-side.
-- The browser sends its WebRTC offer to VocaForm; only the server authenticates the Realtime call.
-- Spoken writes are accepted only through validated application tools and retain the user's exact wording as provenance.
-- Cancelled or interrupted model responses do not execute pending client-side tool calls.
-- Responses API compilation uses `store: false`.
-- Responses API final verification also uses `store: false` and cannot write application state.
-- Model findings are advisory objects; only a user action can confirm, correct, answer, or intentionally blank a value.
-- Any answer change invalidates the prior semantic pass, and verified export requires a pass for the exact current session version.
-- Application memory is durable local application state, separate from model conversation or reasoning state.
-- Merely answering a field or generating a proposal never writes a memory claim.
-- Medical, financial, identity-document, child-identity, support, consent, and long free-form answers are not remembered by default.
-- Remembered values are suggestions only; each value must be confirmed before it becomes a form answer.
-- Forgetting physically removes the claim from the local vault and future suggestions, while already confirmed answers on the active form are not silently rewritten.
+## Privacy and accessibility
 
-This Build Week project is not represented as production medical software or as satisfying any particular healthcare compliance regime.
+- API keys remain on the server; the browser receives only boolean readiness.
+- Uploaded bytes and active sessions stay in process memory and are discarded when cleared or when the server exits.
+- In public-demo mode, a secure same-site browser cookie selects an isolated, expiring in-memory visitor state; public Memory Vault changes are not persisted.
+- Public compilation, final-verification, and Realtime routes have per-visitor and per-address request budgets with explicit `429` recovery guidance.
+- Compiler and verifier Responses API calls use `store: false`.
+- Rendering works from copied bytes and verifies that the retained source is unchanged.
+- The local Memory Vault stores only explicitly approved eligible claims, uses user-only file permissions, and supports visible correction and deletion.
+- Medical, financial, identity-document, child-identity, consent, support, and long free-form answers are excluded from memory by default.
+- Privacy-safe traces accept timings, outcomes, token counts, known tool names, cache state, and render coverage—but no filenames, IDs, answers, transcripts, prompts, or error messages.
+- The full journey has semantic landmarks, managed focus, live status and error announcements, keyboard operation, an equal text path, 44 CSS-pixel targets, 200% text reflow, reduced-motion support, forced-color support, and WCAG AA color contrast.
 
-## Legacy compatibility
-
-The original local prototype remains available while its proven behavior is wrapped and replaced:
-
-```bash
-npm run serve:legacy
-```
-
-The legacy CLI import and rendering commands are also preserved. See [IMPORT_MATRIX.md](./IMPORT_MATRIX.md) for their current format support and limitations.
+This Build Week local store is not encrypted, and VocaForm is not represented as production medical software or as satisfying any healthcare compliance regime. Only synthetic data is committed.
 
 ## Current limitations
 
-- Active sessions are intentionally process-local during Build Week. Realtime reconnects survive a browser transport interruption, but not an API server restart.
-- A text interview remains available when microphone access, WebRTC, or the AI service is unavailable.
-- Compilation-readiness blockers still require a clearer source file; field-level editing of a compiled schema remains deferred.
-- Arbitrary scanned or non-AcroForm PDFs receive a clearly identified DOCX answer packet; pixel-perfect scanned-page overlays remain out of scope.
-- PDF fields that cannot represent an answer safely fall back to the answer packet instead of silently altering or omitting the value.
+- Active sessions are process-local. Realtime reconnects survive a browser transport interruption, not an API server restart.
+- Low-confidence compilation blockers require a clearer source; field-level editing of a compiled schema is deferred.
+- Pixel-perfect overlays for arbitrary scanned PDFs are out of scope.
+- The mandatory Sol semantic pass on verified export is provisional pending user testing; deterministic validation remains mandatory.
+- The local Memory Vault is a Build Week demonstration store, not a production store for sensitive personal data.
+- The UI and generated fallback-document chrome are English; English and Dutch form content are reviewed, while other languages and right-to-left journeys are not submission-QA certified.
+- Export accessibility is source-dependent. VocaForm adds document language and PDF field labels where safe, and its answer packets use real headings and linear reading order, but it does not remediate arbitrary sources into tagged PDF or claim PDF/UA conformance.
 
-These limitations are explicit cut points, not hidden product claims.
+## Project documentation
+
+- [BUILD_WEEK_ROADMAP.md](./BUILD_WEEK_ROADMAP.md) — architecture decisions, scope cuts, acceptance criteria, and submission plan
+- [SUBMISSION_EVIDENCE.md](./SUBMISSION_EVIDENCE.md) — live Sol replay and deterministic release evidence
+- [SUBMISSION_CHECKLIST.md](./SUBMISSION_CHECKLIST.md) — deployment, video, signed-out QA, and Devpost handoff
+- [PRE_SUBMISSION_REVIEW.md](./PRE_SUBMISSION_REVIEW.md) — UI/UX, locale, low-vision, screen-reader, and output-accessibility gate
+- [EXPORT_ACCESSIBILITY_REVIEW.md](./EXPORT_ACCESSIBILITY_REVIEW.md) — reviewed PDF/DOCX structure, rendered evidence, and the source-dependent export claim
+- [DEVPOST_SUBMISSION.md](./DEVPOST_SUBMISSION.md) — copy-ready submission fields and project narrative
+- [RESILIENCE_REPORT.md](./RESILIENCE_REPORT.md) — five-pass release evidence, diagnostic contract, and recovery audit
+- [DEMO_VIDEO_PLAN.md](./DEMO_VIDEO_PLAN.md) — under-three-minute narrated demo storyboard and submission QA
+- [IMPORT_MATRIX.md](./IMPORT_MATRIX.md) — document-format support and known limitations
+- [data/golden/README.md](./data/golden/README.md) — synthetic fixtures, answer keys, and evaluation boundaries
+
+## License
+
+[MIT](./LICENSE) © 2026 VocaForm contributors

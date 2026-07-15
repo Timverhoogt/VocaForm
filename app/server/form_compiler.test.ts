@@ -7,6 +7,8 @@ import { buildCompilerRequest } from "./form_compiler_request";
 const config: AppConfig = {
   host: "127.0.0.1",
   port: 5177,
+  publicDemo: false,
+  storageMode: "local",
   openAiApiKey: "test-key",
   openAiModel: "gpt-5.6-sol",
   openAiReasoningEffort: "high",

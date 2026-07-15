@@ -1,0 +1,16 @@
+.git
+.github
+.env
+.env.*
+node_modules
+dist
+coverage
+work
+tmp
+playwright-report
+test-results
+*.docx
+*.pdf
+*.log
+.DS_Store
+README 2.md

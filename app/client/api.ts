@@ -12,6 +12,19 @@ export async function requestJson<T>(path: string, init?: RequestInit): Promise<
   return payload as T;
 }
 
+export function reportRealtimeFirstResponse(durationMs: number): void {
+  void fetch("/api/resilience/metric", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      event: "realtime_first_response",
+      outcome: "success",
+      durationMs: Math.max(0, Math.round(durationMs))
+    }),
+    keepalive: true
+  }).catch(() => undefined);
+}
+
 export async function downloadDraft(): Promise<void> {
   await downloadDocument("/api/export/draft", "vocaform-draft.docx", "The draft could not be created.");
 }

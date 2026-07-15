@@ -164,6 +164,98 @@ test("Goal 7 remains usable with text resized to 200 percent", async ({ page }) 
   await expectNoHorizontalOverflow(page, "Download at 200% text size");
 });
 
+test("Goal 9 review gate supports low-vision reflow and forced colors", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
+  await page.goto("/");
+
+  await expectNoHorizontalOverflow(page, "Upload at a 320 CSS-pixel reflow width");
+  await expectNoSeriousAccessibilityViolations(page, "Upload in forced-colors mode");
+
+  const uploadButton = page.getByRole("button", { name: "Choose a form" });
+  const forcedColorBorder = await uploadButton.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      style: style.borderTopStyle,
+      width: style.borderTopWidth
+    };
+  });
+  expect(forcedColorBorder.style).toBe("solid");
+  expect(Number.parseFloat(forcedColorBorder.width)).toBeGreaterThanOrEqual(1);
+
+  const sample = page.locator(".sample-option").filter({
+    hasText: "Community Garden Day permission form"
+  });
+  await sample.click();
+  const experienceTop = await page.locator(".experience-card").evaluate((element) =>
+    element.getBoundingClientRect().top
+  );
+  const statusTop = await page.locator(".status-card").evaluate((element) =>
+    element.getBoundingClientRect().top
+  );
+  expect(experienceTop, "The active task should precede the full status card at narrow widths.")
+    .toBeLessThan(statusTop);
+  await page.getByRole("button", { name: /Start answering/ }).click();
+  await expect(page.getByRole("textbox", { name: "Your answer" })).toBeVisible();
+
+  await expectNoHorizontalOverflow(page, "Interview at a 320 CSS-pixel reflow width");
+  await expectNoSeriousAccessibilityViolations(page, "Interview in forced-colors mode");
+});
+
+test("Goal 9 marks Dutch form content with Dutch language boundaries", async ({ page }) => {
+  await page.goto("/");
+  const sample = page.locator(".sample-option").filter({
+    hasText: "Elementary school intake"
+  });
+  await sample.click();
+
+  const experience = page.locator(".experience-card");
+  const title = experience.getByRole("heading", { name: "Entreeformulier Dit ben ik" });
+  await expect(title).toHaveAttribute("lang", "nl-NL");
+  await expect(title).toHaveAttribute("dir", "auto");
+  await expect(page.locator(".status-card").getByRole("heading", {
+    name: "Entreeformulier Dit ben ik"
+  })).toHaveAttribute("lang", "nl-NL");
+
+  await page.getByRole("button", { name: /Start answering/ }).click();
+  const typeButton = page.getByRole("button", { name: "Type" });
+  if (await typeButton.getAttribute("aria-pressed") !== "true") await typeButton.click();
+
+  await expect(experience.locator(".question-meta [lang='nl-NL']")).toContainText("Levensgeschiedenis");
+  await expect(experience.locator("[data-stage-heading]")).toHaveAttribute("lang", "nl-NL");
+  await expect(experience.locator("[data-stage-heading]")).toHaveAttribute("dir", "auto");
+  await expect(experience.locator("#answer-help [lang='nl-NL']")).not.toBeEmpty();
+  await expectNoSeriousAccessibilityViolations(page, "Dutch typed interview");
+});
+
+test("Goal 9 explains isolated and temporary public-demo state", async ({ page }) => {
+  await page.route("**/api/health", async (route) => {
+    await route.fulfill({
+      json: {
+        status: "ok",
+        version: "test",
+        deployment: { publicDemo: true, storage: "ephemeral" },
+        openai: {
+          configured: false,
+          model: "gpt-5.6-sol",
+          realtimeModel: "gpt-realtime-2.1",
+          verificationModel: "gpt-5.6-sol",
+          verificationMode: "standard"
+        }
+      }
+    });
+  });
+  await page.goto("/");
+
+  const notice = page.locator(".public-demo-notice");
+  await expect(notice).toContainText("isolated to this browser session");
+  await expect(notice).toContainText("not written to demo storage");
+  await expect(notice).toContainText("expires after at most two hours");
+  await expect(notice).toContainText("host filesystem is also temporary");
+  await expectNoHorizontalOverflow(page, "Public-demo warning");
+  await expectNoSeriousAccessibilityViolations(page, "Public-demo warning");
+});
+
 async function resetApplication(request: APIRequestContext): Promise<void> {
   expect((await request.delete("/api/session")).ok()).toBe(true);
   expect((await request.delete("/api/compilation")).ok()).toBe(true);

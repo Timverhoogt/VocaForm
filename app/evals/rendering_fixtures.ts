@@ -174,7 +174,7 @@ function templateStyles(): string {
     style("TemplateKicker", "Template kicker", '<w:basedOn w:val="Normal"/><w:pPr><w:spacing w:before="40" w:after="0"/></w:pPr>', '<w:rPr><w:b/><w:caps/><w:color w:val="426A5A"/><w:sz w:val="18"/></w:rPr>'),
     style("TemplateTitle", "Template title", '<w:basedOn w:val="Normal"/><w:pPr><w:spacing w:before="0" w:after="100"/><w:keepNext/></w:pPr>', '<w:rPr><w:b/><w:color w:val="17352D"/><w:sz w:val="52"/></w:rPr>'),
     style("TemplateIntro", "Template intro", '<w:basedOn w:val="Normal"/><w:pPr><w:spacing w:after="220"/></w:pPr>', '<w:rPr><w:color w:val="425A52"/><w:sz w:val="22"/></w:rPr>'),
-    style("Heading1", "Heading 1", '<w:basedOn w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="360" w:after="160"/></w:pPr>', '<w:rPr><w:b/><w:color w:val="2E74B5"/><w:sz w:val="32"/></w:rPr>'),
+    style("Heading1", "Heading 1", '<w:basedOn w:val="Normal"/><w:qFormat/><w:pPr><w:outlineLvl w:val="0"/><w:keepNext/><w:spacing w:before="360" w:after="160"/></w:pPr>', '<w:rPr><w:b/><w:color w:val="2E74B5"/><w:sz w:val="32"/></w:rPr>'),
     style("FormQuestion", "Form question", '<w:basedOn w:val="Normal"/><w:pPr><w:keepNext/><w:spacing w:before="80" w:after="30" w:line="270" w:lineRule="auto"/></w:pPr>', '<w:rPr><w:b/><w:color w:val="17352D"/><w:sz w:val="21"/></w:rPr>'),
     style("FormAnswerLine", "Form answer line", '<w:basedOn w:val="Normal"/><w:pPr><w:spacing w:before="0" w:after="120"/><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="3" w:color="A9BBB2"/></w:pBdr></w:pPr>', '<w:rPr><w:color w:val="61716B"/><w:sz w:val="18"/></w:rPr>'),
     "</w:styles>"

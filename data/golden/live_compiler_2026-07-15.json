@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "evaluatedOn": "2026-07-15",
+  "sourceCommit": "c1cb255a60b5fc12b965304257822d126a3e3911",
+  "model": "gpt-5.6-sol",
+  "repeats": 1,
+  "tokenUsage": {
+    "inputTokens": 4783,
+    "outputTokens": 16288,
+    "totalTokens": 21071
+  },
+  "results": [
+    {
+      "id": "medical-intake-pdf",
+      "readinessScore": 96,
+      "expectedFields": 8,
+      "detectedExpectedFields": 8,
+      "requiredFields": 5,
+      "detectedRequiredFields": 5,
+      "fabricatedFieldIds": [],
+      "missingFieldIds": [],
+      "missingRequiredFieldIds": [],
+      "missingDependencies": []
+    },
+    {
+      "id": "elementary-school-docx",
+      "readinessScore": 88,
+      "expectedFields": 37,
+      "detectedExpectedFields": 37,
+      "requiredFields": 15,
+      "detectedRequiredFields": 15,
+      "fabricatedFieldIds": [],
+      "missingFieldIds": [],
+      "missingRequiredFieldIds": [],
+      "missingDependencies": []
+    },
+    {
+      "id": "activity-permission-conditional",
+      "readinessScore": 96,
+      "expectedFields": 8,
+      "detectedExpectedFields": 8,
+      "requiredFields": 5,
+      "detectedRequiredFields": 5,
+      "fabricatedFieldIds": [],
+      "missingFieldIds": [],
+      "missingRequiredFieldIds": [],
+      "missingDependencies": []
+    }
+  ],
+  "aggregate": {
+    "expectedFields": 53,
+    "detectedExpectedFields": 53,
+    "requiredFields": 25,
+    "detectedRequiredFields": 25,
+    "fieldRecallPercent": 100,
+    "requiredRecallPercent": 100,
+    "fabricatedFieldIds": [],
+    "missingFieldIds": [],
+    "missingRequiredFieldIds": [],
+    "missingDependencies": []
+  }
+}

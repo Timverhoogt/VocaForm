@@ -1,0 +1,51 @@
+previews:
+  generation: off
+
+services:
+  - type: web
+    runtime: docker
+    name: vocaform-build-week
+    repo: https://github.com/Timverhoogt/VocaForm
+    branch: codex/build-week-rebuild
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeployTrigger: off
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: VOCAFORM_PUBLIC_DEMO
+        value: "true"
+      - key: VOCAFORM_STORAGE_MODE
+        value: ephemeral
+      - key: VOCAFORM_WORK_DIR
+        value: /tmp/vocaform
+      - key: SOFFICE_BIN
+        value: /usr/bin/soffice
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-5.6-sol
+      - key: OPENAI_REASONING_EFFORT
+        value: high
+      - key: OPENAI_VERIFICATION_MODEL
+        value: gpt-5.6-sol
+      - key: OPENAI_VERIFICATION_REASONING_MODE
+        value: standard
+      - key: OPENAI_REALTIME_MODEL
+        value: gpt-realtime-2.1
+      - key: OPENAI_REALTIME_VOICE
+        value: marin
+      - key: OPENAI_REALTIME_SPEED
+        value: "0.95"
+      - key: OPENAI_REALTIME_REASONING_EFFORT
+        value: low
+      - key: OPENAI_REALTIME_TRANSCRIPTION_MODEL
+        value: gpt-4o-mini-transcribe
+      - key: OPENAI_SAFETY_IDENTIFIER
+        value: vocaform-public-demo

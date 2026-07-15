@@ -1,5 +1,5 @@
 import type { InterviewToolResponse, SessionView } from "../shared/api";
-import { requestJson } from "./api";
+import { reportRealtimeFirstResponse, requestJson } from "./api";
 
 export type RealtimeInterviewState =
   | "idle"
@@ -56,6 +56,8 @@ export class RealtimeInterviewController {
   private reconnectAttempts = 0;
   private transcript = "";
   private completionPending = false;
+  private firstResponseStartedAt: number | null = null;
+  private firstResponseRecorded = false;
 
   constructor(private readonly options: RealtimeControllerOptions) {
     this.sessionVersion = options.sessionVersion;
@@ -85,6 +87,8 @@ export class RealtimeInterviewController {
     this.handledCallIds.clear();
     this.transcript = "";
     this.completionPending = false;
+    this.firstResponseStartedAt = performance.now();
+    this.firstResponseRecorded = false;
     this.options.onAssistantText("");
     this.options.onError(null);
     await this.connect(false);
@@ -191,6 +195,7 @@ export class RealtimeInterviewController {
         this.options.onStateChange("thinking");
         break;
       case "response.output_audio.delta":
+        this.recordFirstVoiceResponse();
         this.options.onStateChange("speaking");
         break;
       case "response.output_audio_transcript.delta":
@@ -364,6 +369,16 @@ export class RealtimeInterviewController {
     this.localStream = null;
     this.audio.srcObject = null;
   }
+
+  private recordFirstVoiceResponse(): void {
+    if (this.firstResponseRecorded || this.firstResponseStartedAt === null) return;
+    this.firstResponseRecorded = true;
+    reportRealtimeFirstResponse(firstResponseDuration(this.firstResponseStartedAt));
+  }
+}
+
+export function firstResponseDuration(startedAt: number, endedAt = performance.now()): number {
+  return Math.max(0, Math.round(endedAt - startedAt));
 }
 
 export function extractFunctionCalls(event: RealtimeEvent): RealtimeFunctionCall[] {

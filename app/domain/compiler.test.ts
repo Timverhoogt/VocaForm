@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { aggregateCompilerMetrics, evaluateCompilerForm } from "../evals/compiler_metrics";
 import { loadGoldenCompilerFixtures } from "../evals/golden_fixtures";
-import { enforceCompilerSafety, evaluateCompilation } from "./compiler";
+import { enforceCompilerSafety, evaluateCompilation, toFormDefinition } from "./compiler";
 import { createFormSession, findField, isFieldApplicable, saveTextAnswer } from "./session";
 import { formCompilerOutputSchema, type FormCompilerOutput } from "./schemas";
 
@@ -26,6 +26,23 @@ describe("form compiler validation", () => {
     expect(readiness.issues).toEqual(expect.arrayContaining([
       expect.objectContaining({ kind: "unsupported_evidence", fieldId: "invented_field" })
     ]));
+  });
+
+  it("falls back safely when the compiler returns an invalid locale", () => {
+    const output = minimalOutput();
+    output.document.locale = "not_a_locale";
+    const readiness = evaluateCompilation(output, "Imaginary label");
+    const form = toFormDefinition(output, {
+      fileName: "test.txt",
+      format: "text",
+      searchableText: "Imaginary label"
+    });
+
+    expect(readiness.ready).toBe(true);
+    expect(readiness.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: "invalid_locale", severity: "warning" })
+    ]));
+    expect(form.locale).toBe("und");
   });
 
   it("matches live compiler fields by verbatim label when valid stable IDs differ", async () => {

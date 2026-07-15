@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractFunctionCalls } from "./realtime";
+import { extractFunctionCalls, firstResponseDuration } from "./realtime";
 
 describe("extractFunctionCalls", () => {
   it("extracts completed calls in response order", () => {
@@ -27,5 +27,10 @@ describe("extractFunctionCalls", () => {
         output: [{ type: "function_call", call_id: "unsafe", name: "save_answers", arguments: "{}" }]
       }
     })).toEqual([]);
+  });
+
+  it("records first-response latency as a non-negative rounded duration", () => {
+    expect(firstResponseDuration(100.4, 145.8)).toBe(45);
+    expect(firstResponseDuration(20, 12)).toBe(0);
   });
 });

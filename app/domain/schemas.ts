@@ -1,4 +1,15 @@
 import { z } from "zod";
+import { canonicalizeLocale } from "./locale";
+
+export const localeSchema = z.string().trim().min(2).transform((value, context) => {
+  const canonical = canonicalizeLocale(value);
+  if (canonical) return canonical;
+  context.addIssue({
+    code: "custom",
+    message: "Locale must be a valid BCP 47 language tag."
+  });
+  return z.NEVER;
+});
 
 export const fieldTypeSchema = z.enum([
   "short_text",
@@ -74,7 +85,7 @@ export const formDefinitionSchema = z.object({
   id: z.string().min(1),
   version: z.string().min(1),
   title: z.string().min(1),
-  locale: z.string().min(2),
+  locale: localeSchema,
   source: z.object({
     fileName: z.string().min(1),
     format: z.enum(["docx", "pdf", "text", "fixture"])
@@ -133,6 +144,7 @@ export const memoryClaimSchema = z.object({
   sourceFormId: z.string().min(1),
   sourceFieldId: z.string().min(1),
   sourceFormTitle: z.string().min(1).nullable().default(null),
+  sourceFormLocale: localeSchema.nullable().default(null),
   sourceFieldLabel: z.string().min(1).nullable().default(null),
   sourceSessionId: z.string().uuid().nullable().default(null),
   sourceAnswerSource: z.enum(["voice", "text", "user_correction"]).nullable().default(null),
@@ -218,6 +230,7 @@ export const compilationIssueSchema = z.object({
   kind: z.enum([
     "not_a_form",
     "no_fields",
+    "invalid_locale",
     "duplicate_id",
     "missing_evidence",
     "unsupported_evidence",

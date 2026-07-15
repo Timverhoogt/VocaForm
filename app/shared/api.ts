@@ -22,6 +22,10 @@ export interface DocumentExportPlan {
 export interface HealthPayload {
   status: "ok";
   version: string;
+  deployment: {
+    publicDemo: boolean;
+    storage: "local" | "ephemeral";
+  };
   openai: {
     configured: boolean;
     model: string;
