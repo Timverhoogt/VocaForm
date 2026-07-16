@@ -85,7 +85,7 @@ Do not imply that Realtime is GPT-5.6 Sol. Realtime conducts the low-latency con
 > Built with Codex and GPT-5.6 for OpenAI Build Week — Apps for Your Life.
 >
 > Code: https://github.com/Timverhoogt/VocaForm<br>
-> Demo: TO_BE_ADDED_BEFORE_SUBMISSION
+> Demo: https://vocaform-build-week.onrender.com/
 
 **Optional chapters**
 

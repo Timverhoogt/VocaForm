@@ -1,6 +1,6 @@
 # VocaForm Devpost Submission Copy
 
-**Status:** Draft project created and copy-ready except for the deployed demo and public YouTube URLs. Replace both `TO_BE_ADDED_BEFORE_SUBMISSION` values only after signed-out verification. The draft has not been entered into or submitted to the hackathon.
+**Status:** Draft project created and copy-ready except for the public YouTube URL. The deployed demo passed signed-out verification on July 16. The draft has not been entered into or submitted to the hackathon.
 
 **Devpost draft:** [devpost.com/software/vocaform](https://devpost.com/software/vocaform) · project ID `1332705`
 
@@ -13,9 +13,9 @@
 | Devpost draft | https://devpost.com/software/vocaform |
 | Category | Apps for Your Life |
 | Repository | https://github.com/Timverhoogt/VocaForm |
-| Working demo | TO_BE_ADDED_BEFORE_SUBMISSION |
+| Working demo | https://vocaform-build-week.onrender.com/ |
 | Public YouTube video | TO_BE_ADDED_BEFORE_SUBMISSION |
-| Codex `/feedback` task to confirm | `019f5ff0-9cda-7c71-b035-9b120101b753` |
+| Codex `/feedback` Session ID | `019f5ff0-9cda-7c71-b035-9b120101b753` |
 | License | MIT |
 
 ## Build Week submission-field map
@@ -23,14 +23,14 @@
 | Field ID | Required field | Prepared value |
 | ---: | --- | --- |
 | 27945 | Submitter Type | Individual |
-| 27946 | Country of Residence | **Confirm with the submitter before submission** |
+| 27946 | Country of Residence | Netherlands |
 | 27947 | Category | Apps for Your Life |
 | 27948 | Code repository | https://github.com/Timverhoogt/VocaForm |
-| 27949 | Judge demo and instructions | Add the signed-out-verified public demo URL; use reviewed synthetic data only |
-| 27950 | `/feedback` Session ID | Run `/feedback` in task `019f5ff0-9cda-7c71-b035-9b120101b753` and paste the returned value |
+| 27949 | Judge demo and instructions | https://vocaform-build-week.onrender.com/ — use reviewed synthetic data only |
+| 27950 | `/feedback` Session ID | `019f5ff0-9cda-7c71-b035-9b120101b753` |
 | 27951 | Plugin/developer-tool instructions | Not applicable |
 
-The recorded Codex task contains the majority of the core Build Week implementation across the typed foundation, GPT-5.6 form compiler, and Realtime interview. Open that task in Codex and run `/feedback`; paste the ID Codex returns into Devpost. Do not assume the task UUID above is accepted without that confirmation step.
+The recorded Codex task contains the majority of the core Build Week implementation across the typed foundation, GPT-5.6 form compiler, and Realtime interview. Running `/feedback` in that task returned the Session ID recorded above.
 
 ## Short description
 

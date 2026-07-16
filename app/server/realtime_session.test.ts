@@ -28,6 +28,8 @@ describe("Realtime session configuration", () => {
     });
     expect(realtime.audio.input.transcription.language).toBe("en");
     expect(buildRealtimeInstructions(session)).toContain("call save_answers before saying the answer was saved");
+    expect(buildRealtimeInstructions(session)).toContain("end the response and wait silently");
+    expect(buildRealtimeInstructions(session)).toContain("never treat form examples or your own words as user answers");
   });
 
   it("omits unsupported transcription hints so Realtime can detect the language", async () => {

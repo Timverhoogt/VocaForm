@@ -43,12 +43,52 @@ interface RealtimeEvent {
 
 const MAX_RECONNECT_ATTEMPTS = 3;
 
+const USER_TURN_REQUIRED_TOOLS = new Set([
+  "save_answers",
+  "mark_unknown_or_skipped",
+  "remember_answer",
+  "confirm_memory_claim"
+]);
+
+export class RealtimeUserTurnGuard {
+  private speechInProgress = false;
+  private completedTurnAvailable = false;
+
+  reset(): void {
+    this.speechInProgress = false;
+    this.completedTurnAvailable = false;
+  }
+
+  speechStarted(): void {
+    this.speechInProgress = true;
+    this.completedTurnAvailable = false;
+  }
+
+  speechStopped(): void {
+    if (!this.speechInProgress) return;
+    this.speechInProgress = false;
+    this.completedTurnAvailable = true;
+  }
+
+  tryConsumeForTool(name: string): boolean {
+    if (!realtimeToolRequiresUserTurn(name)) return true;
+    if (!this.completedTurnAvailable) return false;
+    this.completedTurnAvailable = false;
+    return true;
+  }
+}
+
+export function realtimeToolRequiresUserTurn(name: string): boolean {
+  return USER_TURN_REQUIRED_TOOLS.has(name);
+}
+
 export class RealtimeInterviewController {
   private peer: RTCPeerConnection | null = null;
   private channel: RTCDataChannel | null = null;
   private localStream: MediaStream | null = null;
   private readonly audio: HTMLAudioElement;
   private readonly handledCallIds = new Set<string>();
+  private readonly userTurnGuard = new RealtimeUserTurnGuard();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private sessionVersion: number;
   private stopped = true;
@@ -85,6 +125,7 @@ export class RealtimeInterviewController {
     this.stopped = false;
     this.reconnectAttempts = 0;
     this.handledCallIds.clear();
+    this.userTurnGuard.reset();
     this.transcript = "";
     this.completionPending = false;
     this.firstResponseStartedAt = performance.now();
@@ -101,6 +142,7 @@ export class RealtimeInterviewController {
     this.reconnectTimer = null;
     this.stopTransport();
     this.releaseMedia();
+    this.userTurnGuard.reset();
     this.completionPending = false;
     this.options.onStateChange("idle");
     this.options.onError(null);
@@ -108,6 +150,7 @@ export class RealtimeInterviewController {
 
   private async connect(isReconnect: boolean): Promise<void> {
     const generation = ++this.connectGeneration;
+    this.userTurnGuard.reset();
     this.options.onStateChange(isReconnect ? "reconnecting" : "requesting_microphone");
 
     try {
@@ -184,9 +227,11 @@ export class RealtimeInterviewController {
 
     switch (event.type) {
       case "input_audio_buffer.speech_started":
+        this.userTurnGuard.speechStarted();
         this.options.onStateChange("listening");
         break;
       case "input_audio_buffer.speech_stopped":
+        this.userTurnGuard.speechStopped();
         this.options.onStateChange("thinking");
         break;
       case "response.created":
@@ -240,8 +285,29 @@ export class RealtimeInterviewController {
 
     this.options.onStateChange("saving");
     let interviewComplete = false;
+    let userTurnRejected = false;
     for (const call of calls) {
       this.handledCallIds.add(call.callId);
+      if (!this.userTurnGuard.tryConsumeForTool(call.name)) {
+        userTurnRejected = true;
+        this.send({
+          type: "conversation.item.create",
+          item: {
+            type: "function_call_output",
+            call_id: call.callId,
+            output: JSON.stringify({
+              ok: false,
+              tool: call.name,
+              sessionVersion: this.sessionVersion,
+              error: {
+                code: "user_turn_required",
+                message: "No completed user audio turn is available. Ask the current question, end the response, and wait for the user to finish speaking before trying this write."
+              }
+            })
+          }
+        });
+        continue;
+      }
       try {
         const result = await this.executeToolWithRetry(call);
         this.sessionVersion = result.view.session.version;
@@ -291,7 +357,12 @@ export class RealtimeInterviewController {
     this.transcript = "";
     this.options.onAssistantText("");
     this.options.onStateChange("thinking");
-    this.send({ type: "response.create" });
+    this.send(userTurnRejected ? {
+      type: "response.create",
+      response: {
+        instructions: "No answer was saved because the user had not completed an audio turn. Ask the current question once, end your response, and wait silently for the user to finish speaking."
+      }
+    } : { type: "response.create" });
   }
 
   private async executeToolWithRetry(call: RealtimeFunctionCall): Promise<InterviewToolResponse> {

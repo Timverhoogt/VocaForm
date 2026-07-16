@@ -51,6 +51,20 @@ The detailed five-pass evidence and loading/recovery matrix are in `RESILIENCE_R
 
 The release container was also built and smoke-tested locally on July 15. It served a healthy public-demo response, ran as the unprivileged `node` user, found LibreOffice at `/usr/bin/soffice`, and contained no `.env` file. The smoke run intentionally omitted an API key and confirmed that the health response exposed only `configured: false`, never a credential.
 
+## Hosted public-demo QA
+
+The deployed public demo at `https://vocaform-build-week.onrender.com/` received a fresh anonymous-browser and independent visitor-session pass on July 16:
+
+- `/api/health` returned HTTP 200 with public-demo mode, ephemeral storage, GPT-5.6 Sol compilation and verification, and Realtime configured; the warmed root response completed in about 0.15 seconds.
+- A fresh signed-out in-app browser opened the reviewed Community Garden form, completed all eight questions through the typed path, used the native radio-choice dialogs, advanced from 88% to 100% after the final choice, reported `8 of 8 complete` and `0` required questions left on both surfaces, passed live final verification, and downloaded the verified DOCX answer packet.
+- The downloaded answer packet rendered as one clean page with all eight synthetic answers, no clipping, overlap, broken layout, or missing content.
+- An independent anonymous visitor uploaded the arbitrary elementary-school DOCX. The Render container successfully used the DOCX preparation path, returned a ready 37-field / 15-required form, started the compiled session, and accepted cleanup. The end-to-end compile took about 248 seconds, so cold/model compilation latency remains a demo risk even though the path passed.
+- That independent visitor did not alter the browser journey: the first browser still showed the Community Garden form at 100%, which confirms the deployed cookie-isolated visitor boundary for the exercised state.
+- A separate medical-fixture session completed with synthetic answers, reported 100% and zero required questions open, passed semantic verification, retained zero Memory claims, and exported a 19,370-byte native PDF. The rendered PDF preserved all fields cleanly and selected `No` for allergies.
+- The completed Download view reflowed at 320 × 800 with a 320-pixel document width and no horizontal overflow.
+
+The browser microphone was not started because doing so would transmit ambient audio and may require a browser permission grant. The live `429` ceiling was also not exhausted because that would deliberately spend the public visitor/address budgets and additional model requests; the deterministic limiter suite covers the 3-per-visitor compile and 10-per-visitor verification/Realtime rules. These two boundaries remain explicit manual/operational checks rather than claimed live passes.
+
 ## Evidence boundaries
 
 These results apply to the reviewed synthetic fixture set. They are not claims of clinical accuracy, universal form support, healthcare compliance, or production durability. The hosted public demo explicitly asks visitors to use synthetic data. Each browser receives an isolated, expiring in-memory form and Memory Vault container, while model-backed routes have bounded anonymous request budgets; this is judge-preview isolation, not production authentication or durable encrypted storage.

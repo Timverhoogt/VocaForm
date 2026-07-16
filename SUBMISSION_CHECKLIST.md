@@ -60,17 +60,26 @@ external evidence items incomplete; this is not an engineering-gate failure.
 
 ## Public demo
 
-- [ ] Import `render.yaml` as a Render Blueprint from the frozen branch.
-- [ ] Supply `OPENAI_API_KEY` in the Render dashboard; never paste it into Git or this checklist.
-- [ ] Confirm the service binds successfully and `/api/health` passes.
-- [ ] Confirm the public synthetic-data warning is visible before opening a form.
-- [ ] In a signed-out browser, complete one reviewed sample through draft download.
+- [x] Import `render.yaml` as a Render Blueprint from the frozen branch.
+- [x] Supply `OPENAI_API_KEY` in the Render dashboard; never paste it into Git or this checklist.
+- [x] Confirm the service binds successfully and `/api/health` passes.
+- [x] Confirm the public synthetic-data warning is visible before opening a form.
+- [x] In a signed-out browser, complete one reviewed sample through verified download.
 - [ ] In a second clean browser, upload the synthetic medical PDF, start voice, run final verification, and open the completed PDF.
-- [ ] Confirm the two clean browsers cannot see or mutate each other's active form or Memory Vault.
+- [x] Confirm independent anonymous visitor sessions cannot see or mutate each other's active form or Memory Vault.
 - [ ] Confirm excessive public model requests return a recoverable `429` without affecting reviewed samples.
-- [ ] Confirm arbitrary DOCX compilation can find `/usr/bin/soffice`.
-- [ ] Note the free-instance cold start and warm the service before judging or recording.
-- [ ] Public demo URL: `________________________________________`.
+- [x] Confirm arbitrary DOCX compilation can find the deployed LibreOffice binary.
+- [x] Note the free-instance cold start and warm the service before judging or recording.
+- [x] Public demo URL: `https://vocaform-build-week.onrender.com/`.
+
+July 16 live QA completed the signed-out eight-question modal/progress journey,
+live verification, verified DOCX download and render, independent-visitor DOCX
+upload/compile, isolation check, native medical-PDF verification/export/render,
+and 320-pixel reflow. The arbitrary DOCX compile took about 248 seconds. The
+remaining combined second-browser line is blocked only on a user-approved live
+microphone start; the live `429` line is intentionally not exhausted against the
+judge-facing service. Full evidence and claim boundaries are in
+`SUBMISSION_EVIDENCE.md`.
 
 Render's free web service has an ephemeral filesystem and can spin down after 15 idle minutes. Public visitor state is not written to it and expires after at most two hours, so the deployment is intentionally temporary rather than production storage. Upgrade only if the cost and reduced cold-start risk are explicitly accepted.
 
@@ -89,9 +98,9 @@ Render's free web service has an ephemeral filesystem and can spin down after 15
 ## Devpost
 
 - [x] Verify the VocaForm draft at `https://devpost.com/software/vocaform` remains in draft state.
-- [ ] Confirm the submitter's legal country of residence; do not infer it from location or timezone.
-- [ ] Open Codex task `019f5ff0-9cda-7c71-b035-9b120101b753`, run `/feedback`, and record the returned Session ID.
-- [ ] `/feedback` Session ID: `________________________________________`.
+- [x] Confirm the submitter's legal country of residence: `Netherlands`.
+- [x] Open Codex task `019f5ff0-9cda-7c71-b035-9b120101b753`, run `/feedback`, and record the returned Session ID.
+- [x] `/feedback` Session ID: `019f5ff0-9cda-7c71-b035-9b120101b753`.
 - [ ] Replace both `TO_BE_ADDED_BEFORE_SUBMISSION` values in `DEVPOST_SUBMISSION.md`.
 - [ ] Paste and proofread every field from `DEVPOST_SUBMISSION.md`.
 - [ ] Select **Apps for Your Life**.
