@@ -36,7 +36,7 @@
 
 ## Release candidate
 
-- [ ] Commit the final scoped changes and push `codex/build-week-rebuild`.
+- [x] Commit the final scoped changes and push `codex/build-week-rebuild`.
 - [x] Run `npm ci` from a clean clone on Node 20 or newer.
 - [x] Run `npx playwright install chromium` in the clean clone.
 - [ ] Run `npm run check:submission` after every external evidence item below is complete.
