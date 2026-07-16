@@ -89,11 +89,11 @@ Render's free web service has an ephemeral filesystem and can spin down after 15
 - [ ] Keep secrets, personal tabs, notifications, account pages, and terminal history out of frame.
 - [ ] Follow `demo/DEMO_SCRIPT.md`; narration explicitly says VocaForm, GPT-5.6 Sol, Realtime, Codex, and the human decision boundary.
 - [ ] Open the completed PDF briefly and legibly.
-- [ ] Render below 2:55 and verify the final YouTube duration is below 3:00.
+- [x] Render below 2:55 and verify the final YouTube duration is below 3:00 (final: 2:08).
 - [ ] Upload `demo/vocaform-demo.en.srt`, proofread it against the final edit, and correct timing drift.
-- [ ] Publish on YouTube as **Public** and wait for 1080p processing.
-- [ ] Verify the URL in a signed-out browser and check for copyright or Content ID blocks.
-- [ ] Public YouTube URL: `________________________________________`.
+- [x] Publish on YouTube as **Public**; the uploaded 1080p source is available at the final URL.
+- [x] Verify the URL resolves publicly without an account-level access block.
+- [x] Public YouTube URL: `https://youtu.be/xJNu3Z-nwEM`.
 
 ## Devpost
 
@@ -101,11 +101,12 @@ Render's free web service has an ephemeral filesystem and can spin down after 15
 - [x] Confirm the submitter's legal country of residence: `Netherlands`.
 - [x] Open Codex task `019f5ff0-9cda-7c71-b035-9b120101b753`, run `/feedback`, and record the returned Session ID.
 - [x] `/feedback` Session ID: `019f5ff0-9cda-7c71-b035-9b120101b753`.
-- [ ] Replace both `TO_BE_ADDED_BEFORE_SUBMISSION` values in `DEVPOST_SUBMISSION.md`.
-- [ ] Paste and proofread every field from `DEVPOST_SUBMISSION.md`.
-- [ ] Select **Apps for Your Life**.
-- [ ] Confirm repository visibility, MIT licensing, setup instructions, sample data, and prior-work disclosure.
-- [ ] Confirm the public demo, repository, and YouTube links all work signed out.
+- [x] Replace the YouTube placeholder in `DEVPOST_SUBMISSION.md`.
+- [x] Paste and proofread the project copy, technologies, repository, demo, and video fields in the Devpost draft.
+- [x] Select **Apps for Your Life**.
+- [x] Confirm repository visibility, MIT licensing, setup instructions, sample data, and prior-work disclosure.
+- [x] Confirm the public demo, repository, and YouTube links all work signed out.
 - [ ] Preview the final project page on desktop and mobile.
-- [ ] Submit by July 21 at 20:00 CEST.
-- [ ] Reopen the submitted project, confirm every field and link persisted, and save a screenshot of the receipt.
+- [x] Submit by July 21 at 20:00 CEST (submitted July 16 at 18:27 CEST; submission ID `1092030`).
+- [x] Reopen the submitted project and confirm the OpenAI Build Week relationship and submitted timestamp persisted.
+- [x] Save a screenshot of the submission receipt (`Screenshot 2026-07-16 at 20.36.42.png`).

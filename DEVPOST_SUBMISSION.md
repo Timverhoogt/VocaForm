@@ -1,6 +1,6 @@
 # VocaForm Devpost Submission Copy
 
-**Status:** Draft project created and copy-ready except for the public YouTube URL. The deployed demo passed signed-out verification on July 16. The draft has not been entered into or submitted to the hackathon.
+**Status:** Submitted to OpenAI Build Week on July 16, 2026 at 18:27 CEST. Devpost submission ID: `1092030`. The deployed demo and public links passed signed-out verification before submission.
 
 **Devpost draft:** [devpost.com/software/vocaform](https://devpost.com/software/vocaform) · project ID `1332705`
 
@@ -14,7 +14,7 @@
 | Category | Apps for Your Life |
 | Repository | https://github.com/Timverhoogt/VocaForm |
 | Working demo | https://vocaform-build-week.onrender.com/ |
-| Public YouTube video | TO_BE_ADDED_BEFORE_SUBMISSION |
+| Public YouTube video | https://youtu.be/xJNu3Z-nwEM |
 | Codex `/feedback` Session ID | `019f5ff0-9cda-7c71-b035-9b120101b753` |
 | License | MIT |
 
