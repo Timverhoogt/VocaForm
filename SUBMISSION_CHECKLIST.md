@@ -37,8 +37,14 @@
 ## Release candidate
 
 - [ ] Commit the final scoped changes and push `codex/build-week-rebuild`.
-- [ ] Run `npm ci` from a clean clone on Node 20 or newer.
-- [ ] Run `npx playwright install chromium` and `npm run check:submission`.
+- [x] Run `npm ci` from a clean clone on Node 20 or newer.
+- [x] Run `npx playwright install chromium` in the clean clone.
+- [ ] Run `npm run check:submission` after every external evidence item below is complete.
+
+The July 16 clean clone used Node 26.5.0 and passed `npm run check:experience`,
+`npm run check:resilience`, and all 16 desktop/mobile browser journeys. The final
+submission command currently stops at the intended checklist boundary with 34
+external evidence items incomplete; this is not an engineering-gate failure.
 - [x] Build and smoke-test the container locally:
 
   ```bash
