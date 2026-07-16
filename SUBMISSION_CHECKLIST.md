@@ -31,7 +31,7 @@
 - [x] Inspect completed PDF and DOCX outputs; record structural improvements and the untagged-PDF accepted exception in `EXPORT_ACCESSIBILITY_REVIEW.md`.
 - [x] Visually inspect focus, disabled, progress, and blocker states in Chromium forced-colors mode; retain the reproducible capture command.
 - [x] Confirm the submission locale claim: English UI; language-aware form handling; reviewed English and Dutch form content; other languages and voice best effort unless separately verified.
-- [x] Run `npm run check:experience` successfully for exact candidate `249c4de0965477445ec8b43bf0ffd989f09d6835` with only metadata changes afterward.
+- [ ] Run `npm run check:experience` successfully for exact candidate `8b192c84b311d237617db830b65ad0fccac7ce9b` with only metadata changes afterward.
 - [x] Record candidate SHA, reviewer, accepted exceptions, and a **PASS** decision before feature freeze.
 
 ## Release candidate
@@ -50,7 +50,7 @@
   ```
 
 - [x] Confirm `http://127.0.0.1:10000/api/health` reports `status: ok`, `publicDemo: true`, and no secret value.
-- [x] Feature-freeze the exact passing commit SHA: `249c4de0965477445ec8b43bf0ffd989f09d6835`.
+- [ ] Feature-freeze the exact passing commit SHA: `8b192c84b311d237617db830b65ad0fccac7ce9b`.
 
 ## Public demo
 

@@ -14,7 +14,7 @@ This gate sits between a passing engineering build and the final release-candida
 | Mobile, 390 × 844 | Pass | No horizontal overflow; the active task precedes the full status card |
 | Low-vision reflow, 320 × 800 | Pass | No horizontal overflow; task-order regression coverage is in `app/e2e/accessibility.spec.ts` |
 | Keyboard-only journey | Pass | Existing Playwright journey completes form and draft download without a pointer |
-| Screen-reader structure | Pass on reviewed VoiceOver journey | `SCREEN_READER_REVIEW.md` records the typed end-to-end journey, error recovery, Memory states, verification blocker recovery, and ready/locked Download states |
+| Screen-reader structure | Pass on reviewed VoiceOver baseline and targeted candidate delta | `SCREEN_READER_REVIEW.md` records the typed end-to-end journey and the exact-candidate choice-dialog/progress regression review |
 | WCAG A/AA serious or critical Axe findings | Pass on reviewed states | Existing accessibility suite plus the new forced-colors/reflow state |
 | 200% text resize | Pass | Existing Playwright checks cover Upload, prepared form, interview, Review, and Download |
 | Forced colors and reduced motion | Pass | Automated coverage plus a rendered visual pass of focus, progress, blockers, and disabled verification/export controls; reproducible with `npm run evidence:forced-colors` |
@@ -51,6 +51,9 @@ For the Build Week submission, the defensible claim is: **English application in
 | EXP-04 | P1 | Accepted scope | Output accessibility | Reviewed DOCX outputs have language metadata, linear reading order, real headings, zero structural-audit findings, and clean renders. Filled PDF fields now have alternate labels and document language, but the synthetic source and completed PDF remain untagged. | Keep the claim source-dependent: do not claim tagged PDF, PDF/UA, universal accessible exports, or assistive-technology certification. See `EXPORT_ACCESSIBILITY_REVIEW.md`. |
 | EXP-05 | P2 | Accepted scope | Localization | Application-owned UI and server messages remain English; there is no translated message catalog or language switcher. | Keep the submission claim to an English UI with language-aware form handling; design translated UI localization as follow-up work. |
 | EXP-06 | P2 | Resolved | Visual accessibility | Chromium forced-colors/reduced-motion renders were visually inspected for focus, disabled controls, numeric progress, blockers, and locked export. | Reproduce the five evidence views with `npm run evidence:forced-colors`; repeat on the frozen candidate if visual CSS changes. |
+| EXP-07 | P1 | Resolved | Choice questions | Boolean and multiple-choice fields previously fell back to the free-text answer path. | A native modal dialog now presents radios or checkboxes, starts on a named option, supports Save, Skip, Close, and Escape, returns focus to the invoking question, and is covered by keyboard, Axe, desktop, and mobile browser journeys. |
+| EXP-08 | P1 | Resolved | Progress | A session could report Finished in the left rail while the right status card remained at 88% because skipped or conclusively not-needed fields were omitted from the numerator. | Completion now uses handled fields for progress and reports answered, skipped, and not-needed counts separately; a finished eight-field journey reports 8 of 8 and 100%. |
+| EXP-09 | P1 | Resolved | Text resize | At 200% text on the mobile viewport, the long landing-page heading could widen the document beyond the viewport. | Long heading words may now wrap when required; the 200% desktop/mobile overflow journey passes. |
 
 ## What is already strong
 
@@ -80,8 +83,8 @@ Feature freeze can proceed only after the reviewer, candidate SHA, date, open ex
 
 ## Sign-off
 
-- Candidate SHA: `249c4de0965477445ec8b43bf0ffd989f09d6835`
-- Reviewer: `Codex pre-submission review with manual VoiceOver verification`
-- Review date: `2026-07-15`
-- Open accepted exceptions: `English-only application UI; other form languages and voice are best effort; the VoiceOver pass covered the typed path rather than microphone interaction; native PDF accessibility remains source-dependent and the reviewed PDF is untagged, so no PDF/UA or universal accessible-export claim is made.`
+- Candidate SHA: `8b192c84b311d237617db830b65ad0fccac7ce9b`
+- Reviewer: `Codex pre-submission review using the prior full manual VoiceOver baseline plus an exact-candidate keyboard, accessibility-tree, Axe, desktop, and mobile delta review`
+- Review date: `2026-07-16`
+- Open accepted exceptions: `English-only application UI; other form languages and voice are best effort; the full manual VoiceOver typed-path baseline was not repeated after the narrowly scoped choice-dialog and progress changes, so exact-candidate assistive-technology evidence is a targeted accessibility-tree and keyboard regression plus the automated suite; microphone interaction was not covered; native PDF accessibility remains source-dependent and the reviewed PDF is untagged, so no PDF/UA or universal accessible-export claim is made.`
 - Decision: PASS
