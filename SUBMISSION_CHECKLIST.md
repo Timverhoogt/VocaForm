@@ -76,9 +76,9 @@ July 16 live QA completed the signed-out eight-question modal/progress journey,
 live verification, verified DOCX download and render, independent-visitor DOCX
 upload/compile, isolation check, native medical-PDF verification/export/render,
 and 320-pixel reflow. The arbitrary DOCX compile took about 248 seconds. The
-remaining combined second-browser line is blocked only on a user-approved live
-microphone start; the live `429` line is intentionally not exhausted against the
-judge-facing service. Full evidence and claim boundaries are in
+remaining combined second-browser line is blocked only on a post-fix live
+microphone retest; the live `429` line is intentionally not exhausted against
+the judge-facing service. Full evidence and claim boundaries are in
 `SUBMISSION_EVIDENCE.md`.
 
 Render's free web service has an ephemeral filesystem and can spin down after 15 idle minutes. Public visitor state is not written to it and expires after at most two hours, so the deployment is intentionally temporary rather than production storage. Upgrade only if the cost and reduced cold-start risk are explicitly accepted.
