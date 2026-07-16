@@ -240,6 +240,7 @@ footer {
   font-weight: 650;
   letter-spacing: -0.05em;
   line-height: 1;
+  overflow-wrap: anywhere;
 }
 
 .hero-copy > p:last-child {

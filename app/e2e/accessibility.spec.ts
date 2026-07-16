@@ -249,6 +249,8 @@ test("Goal 9 explains isolated and temporary public-demo state", async ({ page }
 async function saveInterviewAnswerWithKeyboard(page: Page, value: string): Promise<void> {
   const choiceDialog = page.locator(".choice-modal");
   const choiceIsOpen = await choiceDialog.count() === 1 && await choiceDialog.isVisible();
+  const stageHeading = page.locator(".experience-card [data-stage-heading]");
+  const currentQuestion = await stageHeading.textContent();
 
   if (choiceIsOpen) {
     const radio = choiceDialog.getByRole("radio", { name: value, exact: true });
@@ -261,9 +263,11 @@ async function saveInterviewAnswerWithKeyboard(page: Page, value: string): Promi
       }
       await expect(radio).toBeFocused();
       await page.keyboard.press("Space");
-    } else {
+    } else if (await checkbox.count() === 1) {
       await tabTo(page, checkbox);
       await page.keyboard.press("Space");
+    } else {
+      throw new Error(`Choice question does not offer the expected answer “${value}”.`);
     }
   } else {
     const textbox = page.getByRole("textbox", { name: "Your answer" });
@@ -279,6 +283,7 @@ async function saveInterviewAnswerWithKeyboard(page: Page, value: string): Promi
   await page.keyboard.press("Enter");
   expect((await answerResponse).ok()).toBe(true);
   await expect(page.locator(".notice.busy")).toHaveCount(0);
+  await expect(stageHeading).not.toHaveText(currentQuestion || "");
 }
 
 async function resetApplication(request: APIRequestContext): Promise<void> {
