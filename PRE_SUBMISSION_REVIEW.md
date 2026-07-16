@@ -83,7 +83,7 @@ Feature freeze can proceed only after the reviewer, candidate SHA, date, open ex
 
 ## Sign-off
 
-- Candidate SHA: `8b192c84b311d237617db830b65ad0fccac7ce9b`
+- Candidate SHA: `dd7f9f24dc337d915f62ed61cbd9b3e56e2308bf`
 - Reviewer: `Codex pre-submission review using the prior full manual VoiceOver baseline plus an exact-candidate keyboard, accessibility-tree, Axe, desktop, and mobile delta review`
 - Review date: `2026-07-16`
 - Open accepted exceptions: `English-only application UI; other form languages and voice are best effort; the full manual VoiceOver typed-path baseline was not repeated after the narrowly scoped choice-dialog and progress changes, so exact-candidate assistive-technology evidence is a targeted accessibility-tree and keyboard regression plus the automated suite; microphone interaction was not covered; native PDF accessibility remains source-dependent and the reviewed PDF is untagged, so no PDF/UA or universal accessible-export claim is made.`
