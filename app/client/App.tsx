@@ -27,6 +27,7 @@ import type {
   SessionView
 } from "../shared/api";
 import { downloadDraft, downloadVerified, requestJson } from "./api";
+import { ChoiceQuestionModal } from "./ChoiceQuestionModal";
 import type { RealtimeInterviewState } from "./realtime";
 import { useRealtimeInterview } from "./use_realtime_interview";
 
@@ -211,15 +212,15 @@ export function App() {
     });
   }
 
-  async function submitAnswer(event: FormEvent) {
-    event.preventDefault();
-    if (!view?.nextField || !answer.trim()) return;
+  async function saveAnswer(value: string | string[]) {
+    const hasValue = Array.isArray(value) ? value.length > 0 : Boolean(value.trim());
+    if (!view?.nextField || !hasValue) return;
     await runAction(async () => {
       const nextView = await requestJson<SessionView>("/api/session/answer", {
         method: "POST",
         body: JSON.stringify({
           fieldId: view.nextField?.id,
-          value: answer,
+          value,
           sessionVersion: view.session.version
         })
       });
@@ -233,6 +234,11 @@ export function App() {
       pendingMessage: "Saving your answer…",
       retryLabel: "Try saving your answer again"
     });
+  }
+
+  async function submitAnswer(event: FormEvent) {
+    event.preventDefault();
+    await saveAnswer(answer);
   }
 
   async function skipCurrentAnswer() {
@@ -587,6 +593,7 @@ export function App() {
                 onApplyMemory={applyMemorySuggestion}
                 onSkip={skipCurrentAnswer}
                 onSubmit={submitAnswer}
+                onSubmitChoice={saveAnswer}
               />
             )}
             {stage === "review" && view && (
@@ -623,7 +630,7 @@ export function App() {
                 <p>{view.session.form.source.fileName}</p>
                 <div className="progress-copy">
                   <strong>{view.summary.completionPercent}%</strong>
-                  <span>{view.summary.answeredFields} of {view.summary.totalFields} answered</span>
+                  <span>{view.summary.handledFields} of {view.summary.totalFields} complete</span>
                 </div>
                 <div
                   className="progress-track"
@@ -632,12 +639,19 @@ export function App() {
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-valuenow={view.summary.completionPercent}
-                  aria-valuetext={`${view.summary.answeredFields} of ${view.summary.totalFields} questions answered`}
+                  aria-valuetext={`${view.summary.handledFields} of ${view.summary.totalFields} questions complete`}
                 >
                   <span style={{ width: `${view.summary.completionPercent}%` }} />
                 </div>
                 <dl className="status-facts">
                   <div><dt>Required left</dt><dd>{view.summary.requiredOpen}</dd></div>
+                  <div><dt>Answered</dt><dd>{view.summary.answeredFields}</dd></div>
+                  {view.summary.handledFields > view.summary.answeredFields && (
+                    <div>
+                      <dt>Skipped / not needed</dt>
+                      <dd>{view.summary.handledFields - view.summary.answeredFields}</dd>
+                    </div>
+                  )}
                   <div><dt>Sections</dt><dd>{view.session.form.sections.length}</dd></div>
                   <div><dt>Draft ready</dt><dd>Yes</dd></div>
                   <div>
@@ -971,18 +985,32 @@ interface TalkStageProps {
   onReview: () => void;
   onSkip: () => Promise<void>;
   onSubmit: (event: FormEvent) => Promise<void>;
+  onSubmitChoice: (value: string | string[]) => Promise<void>;
 }
 
 function TalkStage(props: TalkStageProps) {
   const { answer, busy, currentField, currentSectionTitle, view } = props;
   const typeButtonRef = useRef<HTMLButtonElement>(null);
+  const choiceButtonRef = useRef<HTMLButtonElement>(null);
   const voiceAvailable = props.realtime.supported;
   const [mode, setMode] = useState<"voice" | "type">(voiceAvailable ? "voice" : "type");
+  const [closedChoiceFieldId, setClosedChoiceFieldId] = useState<string | null>(null);
   const voiceActive = !["idle", "error", "complete"].includes(props.realtime.state);
+  const choiceQuestion = hasPresentedChoices(currentField);
+  const choiceModalOpen = mode === "type"
+    && choiceQuestion
+    && closedChoiceFieldId !== currentField?.id;
 
   function selectMode(nextMode: "voice" | "type") {
     if (nextMode === "type") props.realtime.stop();
+    if (nextMode === "type") setClosedChoiceFieldId(null);
     setMode(nextMode);
+  }
+
+  function closeChoiceModal() {
+    if (!currentField) return;
+    setClosedChoiceFieldId(currentField.id);
+    window.requestAnimationFrame(() => choiceButtonRef.current?.focus());
   }
 
   if (!currentField) {
@@ -1079,34 +1107,69 @@ function TalkStage(props: TalkStageProps) {
               For example: <span dir="auto" lang={view.session.form.locale}>{currentField.examples.slice(0, 2).join(" · ")}</span>
             </p>
           )}
-          <form onSubmit={(event) => void props.onSubmit(event)}>
-            <label htmlFor="answer">Your answer</label>
-            <textarea
-              id="answer"
-              dir="auto"
-              aria-describedby={currentField.examples.length > 0 ? "answer-help" : undefined}
-              aria-required={currentField.required}
-              value={answer}
-              onChange={(event) => props.onAnswerChange(event.target.value)}
-              placeholder="Type naturally. You can use your own words."
-              rows={5}
-              disabled={busy}
-              autoFocus
-            />
-            <div className="form-actions">
-              <button type="button" className="quiet-button" disabled={busy} onClick={() => void props.onSkip()}>
-                I’ll answer this later
-              </button>
-              <button type="submit" className="primary-button compact" disabled={busy || !answer.trim()}>
-                Save and continue <span aria-hidden="true">→</span>
+          {choiceQuestion ? (
+            <div className="choice-picker">
+              <p>{currentField.type === "multi_choice"
+                ? "Choose one or more answers from the options shown on the form."
+                : "Choose one answer from the options shown on the form."}</p>
+              <button
+                ref={choiceButtonRef}
+                type="button"
+                className="primary-button compact"
+                disabled={busy}
+                onClick={() => setClosedChoiceFieldId(null)}
+              >
+                {closedChoiceFieldId === currentField.id ? "Choose an answer" : "Answer choices open"}
+                <span aria-hidden="true">→</span>
               </button>
             </div>
-          </form>
+          ) : (
+            <form onSubmit={(event) => void props.onSubmit(event)}>
+              <label htmlFor="answer">Your answer</label>
+              <textarea
+                id="answer"
+                dir="auto"
+                aria-describedby={currentField.examples.length > 0 ? "answer-help" : undefined}
+                aria-required={currentField.required}
+                value={answer}
+                onChange={(event) => props.onAnswerChange(event.target.value)}
+                placeholder="Type naturally. You can use your own words."
+                rows={5}
+                disabled={busy}
+                autoFocus
+              />
+              <div className="form-actions">
+                <button type="button" className="quiet-button" disabled={busy} onClick={() => void props.onSkip()}>
+                  I’ll answer this later
+                </button>
+                <button type="submit" className="primary-button compact" disabled={busy || !answer.trim()}>
+                  Save and continue <span aria-hidden="true">→</span>
+                </button>
+              </div>
+            </form>
+          )}
         </div>
+      )}
+      {choiceModalOpen && (
+        <ChoiceQuestionModal
+          key={currentField.id}
+          busy={busy}
+          field={currentField}
+          locale={view.session.form.locale}
+          onClose={closeChoiceModal}
+          onSkip={props.onSkip}
+          onSubmit={props.onSubmitChoice}
+        />
       )}
       <button type="button" className="text-button" disabled={busy} onClick={props.onReview}>Review what I have so far</button>
     </div>
   );
+}
+
+function hasPresentedChoices(field: FormField | null): boolean {
+  return Boolean(field
+    && field.options.length > 0
+    && ["boolean", "single_choice", "multi_choice"].includes(field.type));
 }
 
 function voiceStateLabel(state: RealtimeInterviewState): string {

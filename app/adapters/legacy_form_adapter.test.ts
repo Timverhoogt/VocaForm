@@ -35,10 +35,12 @@ describe("legacy form adapter", () => {
     expect(summarizeSession(session)).toMatchObject({
       totalFields: 37,
       answeredFields: 0,
+      handledFields: 0,
       requiredOpen: 15
     });
     expect(summarizeSession(next)).toMatchObject({
       answeredFields: 1,
+      handledFields: 1,
       requiredOpen: 14
     });
     expect(verifySession(next).readyForFinalExport).toBe(false);

@@ -51,29 +51,19 @@ test("Goal 7 completes the prepared form with a keyboard and clear screen-reader
   await expect(experience.locator("[data-stage-heading]")).toBeFocused();
   await expectNoSeriousAccessibilityViolations(page, "Typed interview");
 
-  const answers = [
-    "Mila Hart",
-    "Alex Hart",
-    "+31 6 12345678",
-    "alex@example.test",
-    "Yes",
-    "Picked up",
-    "No additional support needed",
-    "No"
-  ];
+  for (const value of ["Mila Hart", "Alex Hart", "+31 6 12345678", "alex@example.test"]) {
+    await saveInterviewAnswerWithKeyboard(page, value);
+  }
 
-  for (const value of answers) {
-    const textbox = page.getByRole("textbox", { name: "Your answer" });
-    await tabTo(page, textbox);
-    await page.keyboard.insertText(value);
-    const saveButton = page.getByRole("button", { name: /Save and continue/ });
-    await tabTo(page, saveButton);
-    const answerResponse = page.waitForResponse((response) =>
-      response.url().endsWith("/api/session/answer") && response.request().method() === "POST"
-    );
-    await page.keyboard.press("Enter");
-    expect((await answerResponse).ok()).toBe(true);
-    await expect(page.locator(".notice.busy")).toHaveCount(0);
+  const attendanceChoices = page.getByRole("dialog", {
+    name: "May your child attend Community Garden Day?"
+  });
+  await expect(attendanceChoices).toBeVisible();
+  await expect(attendanceChoices.getByRole("radio", { name: "Yes", exact: true })).toBeFocused();
+  await expectNoSeriousAccessibilityViolations(page, "Choice question modal");
+
+  for (const value of ["Yes", "Picked up", "No additional support needed", "No"]) {
+    await saveInterviewAnswerWithKeyboard(page, value);
   }
 
   const reviewHeading = experience.getByRole("heading", { name: "8 answers saved." });
@@ -255,6 +245,41 @@ test("Goal 9 explains isolated and temporary public-demo state", async ({ page }
   await expectNoHorizontalOverflow(page, "Public-demo warning");
   await expectNoSeriousAccessibilityViolations(page, "Public-demo warning");
 });
+
+async function saveInterviewAnswerWithKeyboard(page: Page, value: string): Promise<void> {
+  const choiceDialog = page.locator(".choice-modal");
+  const choiceIsOpen = await choiceDialog.count() === 1 && await choiceDialog.isVisible();
+
+  if (choiceIsOpen) {
+    const radio = choiceDialog.getByRole("radio", { name: value, exact: true });
+    const checkbox = choiceDialog.getByRole("checkbox", { name: value, exact: true });
+    if (await radio.count() === 1) {
+      const radioCount = await choiceDialog.getByRole("radio").count();
+      for (let index = 0; index < radioCount; index += 1) {
+        if (await radio.evaluate((element) => element === document.activeElement)) break;
+        await page.keyboard.press("ArrowDown");
+      }
+      await expect(radio).toBeFocused();
+      await page.keyboard.press("Space");
+    } else {
+      await tabTo(page, checkbox);
+      await page.keyboard.press("Space");
+    }
+  } else {
+    const textbox = page.getByRole("textbox", { name: "Your answer" });
+    await tabTo(page, textbox);
+    await page.keyboard.insertText(value);
+  }
+
+  const saveButton = page.getByRole("button", { name: /Save and continue/ });
+  await tabTo(page, saveButton);
+  const answerResponse = page.waitForResponse((response) =>
+    response.url().endsWith("/api/session/answer") && response.request().method() === "POST"
+  );
+  await page.keyboard.press("Enter");
+  expect((await answerResponse).ok()).toBe(true);
+  await expect(page.locator(".notice.busy")).toHaveCount(0);
+}
 
 async function resetApplication(request: APIRequestContext): Promise<void> {
   expect((await request.delete("/api/session")).ok()).toBe(true);

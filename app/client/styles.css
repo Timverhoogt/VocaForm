@@ -892,6 +892,113 @@ footer {
   padding-top: 0.5rem;
 }
 
+.choice-picker {
+  display: grid;
+  justify-items: start;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding: 1.2rem;
+  border: 1px solid #c9d8d5;
+  border-radius: 1rem;
+  background: var(--green-pale);
+}
+
+.choice-picker p {
+  margin: 0;
+  color: var(--green-dark);
+  line-height: 1.6;
+}
+
+.choice-modal {
+  width: min(680px, calc(100% - 2rem));
+  max-width: none;
+  max-height: calc(100% - 2rem);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #c7cbc7;
+  border-radius: 1.2rem;
+  background: var(--paper);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.2);
+}
+
+.choice-modal::backdrop {
+  background: rgba(32, 33, 35, 0.48);
+}
+
+.choice-modal-card {
+  max-height: calc(100vh - 2rem);
+  margin: 0;
+  padding: clamp(1.2rem, 4vw, 2rem);
+  overflow-y: auto;
+}
+
+.choice-modal-card > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.choice-modal-card h2 {
+  max-width: 560px;
+  margin: 0;
+  font-size: clamp(1.5rem, 4vw, 2.2rem);
+  letter-spacing: -0.035em;
+}
+
+.choice-modal-lead {
+  margin: 1rem 0 1.25rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.choice-options {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.choice-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  min-height: 3.5rem;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #bdc9c1;
+  border-radius: 0.85rem;
+  background: white;
+  cursor: pointer;
+}
+
+.choice-option:hover,
+.choice-option.selected {
+  border-color: var(--green);
+  background: var(--green-pale);
+}
+
+.choice-option input {
+  width: 1.25rem;
+  height: 1.25rem;
+  min-height: 1.25rem;
+  margin: 0;
+  accent-color: var(--green);
+}
+
+.choice-option span {
+  font-weight: 740;
+}
+
+.choice-modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
 .question-help {
   margin: 1rem 0 1.5rem;
   font-size: 0.88rem;
@@ -1885,6 +1992,27 @@ footer {
   }
 }
 
+@media (max-width: 520px) {
+  .choice-modal {
+    width: calc(100% - 1rem);
+    max-height: calc(100% - 1rem);
+  }
+
+  .choice-modal-card {
+    max-height: calc(100vh - 1rem);
+    padding: 1.1rem;
+  }
+
+  .choice-modal-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .choice-modal-actions button {
+    width: 100%;
+  }
+}
+
 @media (max-width: 560px) {
   .site-header,
   .public-demo-notice,
@@ -2042,7 +2170,9 @@ footer {
   .status-card,
   .journey,
   .notice,
-  .download-option {
+  .download-option,
+  .choice-modal,
+  .choice-option {
     border: 1px solid CanvasText;
   }
 

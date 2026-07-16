@@ -75,7 +75,10 @@ const jsonBodySchema = z.object({}).passthrough();
 const fixtureRequestSchema = z.object({ fixtureId: z.string().min(1) });
 const answerRequestSchema = z.object({
   fieldId: z.string().min(1),
-  value: z.string().min(1),
+  value: z.union([
+    z.string().min(1),
+    z.array(z.string().min(1)).min(1)
+  ]),
   sessionVersion: z.number().int().nonnegative()
 });
 const skipRequestSchema = z.object({

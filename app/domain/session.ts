@@ -19,6 +19,7 @@ import {
 export interface SessionSummary {
   totalFields: number;
   answeredFields: number;
+  handledFields: number;
   openFields: number;
   requiredOpen: number;
   completionPercent: number;
@@ -62,19 +63,21 @@ export function createFormSession(form: FormDefinition, now = new Date()): FormS
 export function saveTextAnswer(
   session: FormSession,
   fieldId: string,
-  value: string,
+  value: string | string[],
   now = new Date()
 ): FormSession {
   const field = findField(session.form, fieldId);
   if (!field) throw new Error(`Unknown field: ${fieldId}`);
 
-  const canonicalValue = parseTextAnswer(field, value);
+  const canonicalValue = Array.isArray(value) ? value : parseTextAnswer(field, value);
+  if (Array.isArray(value)) validateAnswerValue(field, canonicalValue);
+  const rawAnswer = Array.isArray(value) ? value.join(", ") : value;
 
   return replaceAnswer(session, {
     fieldId,
     status: "answered",
     value: canonicalValue,
-    rawAnswer: value,
+    rawAnswer,
     normalizedAnswer: formatNormalizedAnswer(canonicalValue),
     confidence: 1,
     followUpQuestion: null,
@@ -157,6 +160,7 @@ export function skipAnswer(session: FormSession, fieldId: string, now = new Date
 export function summarizeSession(session: FormSession): SessionSummary {
   const fields = listFields(session.form);
   const answeredFields = fields.filter((field) => session.answers[field.id]?.status === "answered").length;
+  const handledFields = fields.filter((field) => isFieldHandled(session, field)).length;
   const openFields = fields.filter(
     (field) => isFieldApplicable(session, field) && isOpen(session.answers[field.id])
   ).length;
@@ -169,9 +173,10 @@ export function summarizeSession(session: FormSession): SessionSummary {
   return {
     totalFields: fields.length,
     answeredFields,
+    handledFields,
     openFields,
     requiredOpen,
-    completionPercent: fields.length === 0 ? 0 : Math.round((answeredFields / fields.length) * 100)
+    completionPercent: fields.length === 0 ? 0 : Math.round((handledFields / fields.length) * 100)
   };
 }
 
@@ -386,6 +391,17 @@ function replaceAnswer(
 
 function isOpen(answer: AnswerRecord | undefined): boolean {
   return !answer || answer.status === "unanswered" || answer.status === "needs_followup";
+}
+
+function isFieldHandled(session: FormSession, field: FormField): boolean {
+  const answer = session.answers[field.id];
+  if (answer?.status === "answered" || answer?.status === "skipped") return true;
+  if (field.dependencies.length === 0) return false;
+  const dependenciesDecided = field.dependencies.every((dependency) => {
+    const dependencyAnswer = session.answers[dependency.fieldId];
+    return dependencyAnswer?.status === "answered" || dependencyAnswer?.status === "skipped";
+  });
+  return dependenciesDecided && !isFieldApplicable(session, field);
 }
 
 function equal(actual: string | number | boolean, expected: string): boolean {

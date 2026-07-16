@@ -102,9 +102,17 @@ async function openSample(page: Page, title: string): Promise<void> {
 }
 
 async function saveCurrentAnswer(page: Page, value: string): Promise<void> {
-  const answer = page.getByRole("textbox", { name: "Your answer" });
-  await expect(answer).toBeVisible();
-  await answer.fill(value);
+  const choiceDialog = page.locator(".choice-modal");
+  if (await choiceDialog.count() === 1 && await choiceDialog.isVisible()) {
+    const radio = choiceDialog.getByRole("radio", { name: value, exact: true });
+    const checkbox = choiceDialog.getByRole("checkbox", { name: value, exact: true });
+    const control = await radio.count() === 1 ? radio : checkbox;
+    await control.check();
+  } else {
+    const answer = page.getByRole("textbox", { name: "Your answer" });
+    await expect(answer).toBeVisible();
+    await answer.fill(value);
+  }
   const responsePromise = page.waitForResponse((response) =>
     response.url().endsWith("/api/session/answer") && response.request().method() === "POST"
   );

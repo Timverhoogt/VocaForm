@@ -43,7 +43,7 @@ test("Goal 4 memory remains explicit and visually traceable", async ({ page, req
   await saveCurrentAnswer(page, "Yes", 5);
   await saveCurrentAnswer(page, "Picked up", 6);
   await skipCurrentAnswer(page);
-  await saveCurrentAnswer(page, "No", 7);
+  await saveCurrentAnswer(page, "No", 8);
 
   await expect(experience.getByRole("heading", { name: "7 answers saved." })).toBeVisible();
   await expect(page.locator(".remember-candidate-card")).toHaveCount(3);
@@ -171,16 +171,24 @@ async function openSample(page: Page, title: string): Promise<void> {
   await expect(page.locator(".notice.busy")).toHaveCount(0);
 }
 
-async function saveCurrentAnswer(page: Page, value: string, answeredCount: number): Promise<void> {
-  const answer = page.getByRole("textbox", { name: "Your answer" });
-  await expect(answer).toBeVisible();
-  await answer.fill(value);
+async function saveCurrentAnswer(page: Page, value: string, completedCount: number): Promise<void> {
+  const choiceDialog = page.locator(".choice-modal");
+  if (await choiceDialog.count() === 1 && await choiceDialog.isVisible()) {
+    const radio = choiceDialog.getByRole("radio", { name: value, exact: true });
+    const checkbox = choiceDialog.getByRole("checkbox", { name: value, exact: true });
+    const control = await radio.count() === 1 ? radio : checkbox;
+    await control.check();
+  } else {
+    const answer = page.getByRole("textbox", { name: "Your answer" });
+    await expect(answer).toBeVisible();
+    await answer.fill(value);
+  }
   const responsePromise = page.waitForResponse((response) =>
     response.url().endsWith("/api/session/answer") && response.request().method() === "POST"
   );
   await page.getByRole("button", { name: /Save and continue/ }).click();
   expect((await responsePromise).ok()).toBe(true);
-  await expect(page.locator(".progress-copy span")).toHaveText(`${answeredCount} of 8 answered`);
+  await expect(page.locator(".progress-copy span")).toHaveText(`${completedCount} of 8 complete`);
   await expect(page.locator(".notice.busy")).toHaveCount(0);
 }
 

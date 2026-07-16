@@ -8,6 +8,8 @@ import {
   createFormSession,
   isVerificationIssueResolved,
   saveTextAnswer,
+  skipAnswer,
+  summarizeSession,
   verifySession
 } from "./session";
 import {
@@ -51,6 +53,43 @@ describe("final verification domain", () => {
       fieldId: "will_attend",
       kind: "invalid_value"
     }));
+  });
+
+  it("preserves typed multi-choice selections as a validated list", async () => {
+    const base = (await loadGoldenCompilerFixtures())
+      .find((fixture) => fixture.id === "activity-permission-conditional")!.form;
+    const form = structuredClone(base);
+    const transport = form.sections
+      .flatMap((section) => section.fields)
+      .find((field) => field.id === "transport_home")!;
+    transport.type = "multi_choice";
+    let session = createFormSession(form, NOW);
+    session = saveTextAnswer(session, "will_attend", "Yes");
+    session = saveTextAnswer(session, "transport_home", ["Picked up", "School bus"]);
+
+    expect(session.answers.transport_home).toMatchObject({
+      value: ["Picked up", "School bus"],
+      normalizedAnswer: "Picked up, School bus",
+      rawAnswer: "Picked up, School bus",
+      source: "text"
+    });
+    expect(() => saveTextAnswer(session, "transport_home", ["Hovercraft"]))
+      .toThrow("contains a choice not shown on the form");
+  });
+
+  it("counts skipped and resolved conditional questions as completed progress", async () => {
+    let session = await completeRequiredActivityAnswers();
+    session = skipAnswer(session, "guardian_email");
+    session = skipAnswer(session, "accessibility_needs");
+
+    expect(summarizeSession(session)).toMatchObject({
+      totalFields: 8,
+      answeredFields: 5,
+      handledFields: 8,
+      openFields: 0,
+      requiredOpen: 0,
+      completionPercent: 100
+    });
   });
 
   it("requires a current completed semantic pass before final export", async () => {
