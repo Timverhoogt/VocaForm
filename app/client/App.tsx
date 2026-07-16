@@ -32,6 +32,7 @@ import type { RealtimeInterviewState } from "./realtime";
 import { useRealtimeInterview } from "./use_realtime_interview";
 
 type Stage = "upload" | "talk" | "review" | "download";
+type DownloadComplete = "draft" | "final" | null;
 
 const stageLabels: Record<Stage, string> = {
   upload: "Upload",
@@ -42,6 +43,7 @@ const stageLabels: Record<Stage, string> = {
 
 interface ActionOptions {
   pendingMessage: string;
+  renderingDownload?: Exclude<DownloadComplete, null>;
   retryLabel?: string;
 }
 
@@ -49,8 +51,6 @@ interface RecoveryAction {
   label: string;
   run: () => void | Promise<void>;
 }
-
-type DownloadComplete = "draft" | "final" | null;
 
 export function App() {
   const memoryButtonRef = useRef<HTMLButtonElement>(null);
@@ -70,6 +70,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [recovery, setRecovery] = useState<RecoveryAction | null>(null);
   const [downloadComplete, setDownloadComplete] = useState<DownloadComplete>(null);
+  const [downloadRendering, setDownloadRendering] = useState<DownloadComplete>(null);
   const realtime = useRealtimeInterview({
     enabled: stage === "talk" && Boolean(view) && Boolean(health?.openai.configured),
     sessionVersion: view?.session.version ?? 0,
@@ -270,6 +271,7 @@ export function App() {
       setNotice("Download complete. Your clearly marked draft is ready.");
     }, {
       pendingMessage: "Preparing your draft download…",
+      renderingDownload: "draft",
       retryLabel: "Try the draft download again"
     });
   }
@@ -340,6 +342,7 @@ export function App() {
           : "Download complete. Your verified answer packet is ready.");
     }, {
       pendingMessage: "Preparing your completed document…",
+      renderingDownload: "final",
       retryLabel: "Try the completed download again"
     });
   }
@@ -443,6 +446,10 @@ export function App() {
   }
 
   async function runAction(action: () => Promise<void>, options: ActionOptions) {
+    if (options.renderingDownload) {
+      setDownloadComplete(null);
+      setDownloadRendering(options.renderingDownload);
+    }
     setBusy(true);
     setBusyMessage(options.pendingMessage);
     setError(null);
@@ -457,6 +464,7 @@ export function App() {
           }
         : null);
     } finally {
+      if (options.renderingDownload) setDownloadRendering(null);
       setBusy(false);
     }
   }
@@ -613,6 +621,7 @@ export function App() {
               <DownloadStage
                 busy={busy}
                 complete={downloadComplete}
+                rendering={downloadRendering}
                 view={view}
                 onDraftExport={exportDraft}
                 onFinalExport={exportVerified}
@@ -1323,6 +1332,7 @@ function ReviewStage(props: ReviewStageProps) {
 interface DownloadStageProps {
   busy: boolean;
   complete: DownloadComplete;
+  rendering: DownloadComplete;
   view: SessionView;
   onDraftExport: () => Promise<void>;
   onFinalExport: () => Promise<void>;
@@ -1331,7 +1341,7 @@ interface DownloadStageProps {
 }
 
 function DownloadStage(props: DownloadStageProps) {
-  const { busy, complete, view } = props;
+  const { busy, complete, rendering, view } = props;
   const ready = view.verification.readyForFinalExport;
   const unresolvedBlockers = view.verification.issues.filter((issue) =>
     issue.severity === "blocker" && !issue.resolved
@@ -1348,6 +1358,22 @@ function DownloadStage(props: DownloadStageProps) {
           ? "The final check passed. Download a new completed file; your uploaded original stays unchanged."
           : "You can download a clearly marked draft now, or return to Review to finish the checks for a completed document."}
       </p>
+
+      {rendering && (
+        <div className="download-rendering" role="status" aria-live="polite" aria-atomic="true">
+          <span className="download-spinner" aria-hidden="true" />
+          <div>
+            <strong>{rendering === "draft" ? "Creating your draft…" : "Rendering your completed document…"}</strong>
+            <p>{rendering === "draft"
+              ? "Keep this page open. The DOCX download will start automatically when it is ready."
+              : view.exportPlan.kind === "filled_pdf"
+                ? "VocaForm is filling a new PDF. Your uploaded original stays unchanged."
+                : view.exportPlan.kind === "filled_docx"
+                  ? "VocaForm is filling a new Word document. Your uploaded original stays unchanged."
+                  : "VocaForm is building your verified DOCX answer packet."}</p>
+          </div>
+        </div>
+      )}
 
       {complete && (
         <div className="download-complete">
@@ -1393,7 +1419,7 @@ function DownloadStage(props: DownloadStageProps) {
           Back to review
         </button>
         <button type="button" className="quiet-button" disabled={busy} onClick={() => void props.onDraftExport()}>
-          Download draft DOCX <span aria-hidden="true">↓</span>
+          {rendering === "draft" ? "Creating draft…" : "Download draft DOCX"} <span aria-hidden="true">↓</span>
         </button>
         <button
           type="button"
@@ -1402,7 +1428,7 @@ function DownloadStage(props: DownloadStageProps) {
           disabled={busy || !ready}
           onClick={() => void props.onFinalExport()}
         >
-          {view.exportPlan.buttonLabel} <span aria-hidden="true">↓</span>
+          {rendering === "final" ? "Rendering document…" : view.exportPlan.buttonLabel} <span aria-hidden="true">↓</span>
         </button>
       </div>
       <button type="button" className="text-button danger" disabled={busy} onClick={() => void props.onReset()}>

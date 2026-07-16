@@ -1091,6 +1091,44 @@ footer {
   background: #eef7f2;
 }
 
+.download-rendering {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 1.2rem 0;
+  padding: 1rem;
+  border: 1px solid #9dbeb1;
+  border-radius: 0.9rem;
+  color: var(--green-dark);
+  background: #f0f7f4;
+}
+
+.download-rendering strong {
+  display: block;
+}
+
+.download-rendering p {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.download-spinner {
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  border: 3px solid #bdd5ca;
+  border-top-color: var(--green);
+  border-radius: 999px;
+  animation: download-spin 750ms linear infinite;
+}
+
+@keyframes download-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .download-complete > span,
 .download-option-heading > span {
   display: grid;
