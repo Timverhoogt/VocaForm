@@ -11,6 +11,8 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 RUN npm ci
+RUN PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx playwright install --with-deps chromium \
+  && chmod -R a+rX /ms-playwright
 
 COPY . .
 RUN npm run build \
@@ -18,6 +20,7 @@ RUN npm run build \
   && chown node:node /tmp/vocaform
 
 ENV NODE_ENV=production \
+  PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
   HOST=0.0.0.0 \
   PORT=10000 \
   SOFFICE_BIN=/usr/bin/soffice \

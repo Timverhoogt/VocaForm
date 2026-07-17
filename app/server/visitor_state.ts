@@ -1,6 +1,12 @@
 import type { SourceDocument } from "../adapters/document_renderer";
+import type { WebFormBrowserPreparationRuntime } from "../adapters/web_form_browser_session";
 import { createEmptyMemoryVault } from "../domain/memory";
-import type { FormSession, MemoryVault } from "../domain/schemas";
+import type {
+  FormSession,
+  MemoryVault,
+  WebFormFallbackReason,
+  WebFormPreparation
+} from "../domain/schemas";
 import type { SemanticVerificationRun } from "../domain/verification";
 import type { CompilationResult } from "../shared/api";
 import { InterviewToolExecutor } from "./interview_tools";
@@ -13,6 +19,14 @@ export interface VisitorState {
   compilation: CompilationResult | null;
   compilationSource: { compilationId: string; document: SourceDocument } | null;
   sessionSource: SourceDocument | null;
+  webForm: {
+    access: "public" | "external";
+    handoffUrl: string;
+    warnings: string[];
+    nativePreparationFallbackReason: WebFormFallbackReason | null;
+    preparation: WebFormPreparation;
+    browserSession: WebFormBrowserPreparationRuntime | null;
+  } | null;
   semanticVerification: SemanticVerificationRun | null;
   memoryVault: MemoryVault;
   interviewToolExecutor: InterviewToolExecutor;
@@ -28,6 +42,7 @@ interface VisitorStateRegistryOptions {
   localMemoryVault: MemoryVault;
   maximumPublicVisitors?: number;
   publicVisitorTtlMs?: number;
+  onDiscard?: (state: VisitorState) => void;
 }
 
 export interface ResolvedVisitorState {
@@ -73,7 +88,10 @@ export class VisitorStateRegistry {
 
   private prune(now: number): void {
     for (const [id, entry] of this.publicStates) {
-      if (now - entry.lastAccessedAt >= this.publicVisitorTtlMs) this.publicStates.delete(id);
+      if (now - entry.lastAccessedAt >= this.publicVisitorTtlMs) {
+        this.publicStates.delete(id);
+        this.options.onDiscard?.(entry.state);
+      }
     }
   }
 
@@ -85,7 +103,11 @@ export class VisitorStateRegistry {
         oldest = { id, lastAccessedAt: entry.lastAccessedAt };
       }
     }
-    if (oldest) this.publicStates.delete(oldest.id);
+    if (oldest) {
+      const discarded = this.publicStates.get(oldest.id);
+      this.publicStates.delete(oldest.id);
+      if (discarded) this.options.onDiscard?.(discarded.state);
+    }
   }
 }
 
@@ -122,6 +144,7 @@ function createVisitorState(memoryVault: MemoryVault): VisitorState {
     compilation: null,
     compilationSource: null,
     sessionSource: null,
+    webForm: null,
     semanticVerification: null,
     memoryVault,
     interviewToolExecutor: new InterviewToolExecutor()

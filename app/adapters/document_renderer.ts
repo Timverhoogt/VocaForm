@@ -17,10 +17,14 @@ import {
 } from "pdf-lib";
 import { readZip, writeZip } from "../../src/docx_package.mjs";
 import { extractParagraphs, normalizeText } from "../../src/docx_text.mjs";
+import {
+  assertDocumentFormSession,
+  type DocumentFormSession
+} from "../domain/form_definition";
 import { isFieldApplicable } from "../domain/session";
 import type {
   AnswerRecord,
-  FormField,
+  DocumentFormField,
   FormSession,
   RenderTarget
 } from "../domain/schemas";
@@ -78,7 +82,7 @@ interface RenderAnswer {
   value: string;
   answer: AnswerRecord;
   targets: RenderTarget[];
-  renderFallback: FormField["renderFallback"];
+  renderFallback: DocumentFormField["renderFallback"];
 }
 
 interface DocxModification {
@@ -94,6 +98,7 @@ export function buildDocumentExportPlan(
   session: FormSession,
   source: SourceDocument | null
 ): DocumentExportPlan {
+  assertDocumentFormSession(session);
   if (source?.format === "docx") {
     return {
       kind: "filled_docx",
@@ -122,6 +127,7 @@ export function buildDocumentExportPlan(
 }
 
 export function renderDraftDocument(session: FormSession): RenderedDocument {
+  assertDocumentFormSession(session);
   const entries = renderAnswers(session);
   const bytes = buildAnswerPacketDocx(session, {
     title: "VocaForm draft answers",
@@ -134,6 +140,7 @@ export async function renderVerifiedDocument(
   session: FormSession,
   source: SourceDocument | null
 ): Promise<RenderedDocument> {
+  assertDocumentFormSession(session);
   if (!source) {
     const entries = renderAnswers(session);
     const bytes = buildAnswerPacketDocx(session, {
@@ -160,7 +167,7 @@ export async function renderVerifiedDocument(
   return answerPacketResult(session, bytes, "fallback", source, [], entries);
 }
 
-function renderDocx(session: FormSession, source: SourceDocument): RenderedDocument {
+function renderDocx(session: DocumentFormSession, source: SourceDocument): RenderedDocument {
   requireDocx(source.bytes);
   const sourceSnapshot = Buffer.from(source.bytes);
   const entries = readZip(sourceSnapshot);
@@ -221,7 +228,7 @@ function renderDocx(session: FormSession, source: SourceDocument): RenderedDocum
   );
 }
 
-async function renderPdf(session: FormSession, source: SourceDocument): Promise<RenderedDocument> {
+async function renderPdf(session: DocumentFormSession, source: SourceDocument): Promise<RenderedDocument> {
   requirePdf(source.bytes);
   const sourceSnapshot = Buffer.from(source.bytes);
   let pdf: PDFDocument;
@@ -388,7 +395,7 @@ function matchingOption(options: string[], value: string): string | null {
   return options.find((option) => normalizeComparable(option) === normalized) ?? null;
 }
 
-function renderAnswers(session: FormSession): RenderAnswer[] {
+function renderAnswers(session: DocumentFormSession): RenderAnswer[] {
   const results: RenderAnswer[] = [];
   const interviewFieldIds = new Set<string>();
   for (const section of session.form.sections) {
@@ -425,7 +432,7 @@ function renderAnswers(session: FormSession): RenderAnswer[] {
   return results;
 }
 
-function inferredPrefillTargets(session: FormSession, fieldId: string, label: string): RenderTarget[] {
+function inferredPrefillTargets(session: DocumentFormSession, fieldId: string, label: string): RenderTarget[] {
   if (session.form.source.format === "docx") {
     return [{ kind: "docx_anchor", locator: label, confidence: 0.8 }];
   }
@@ -443,6 +450,11 @@ function answerValue(answer: AnswerRecord): string {
   if (answer.status === "skipped") return "Intentionally left blank";
   if (Array.isArray(answer.value)) return answer.value.join(", ");
   if (typeof answer.value === "boolean") return answer.value ? "Yes" : "No";
+  if (answer.value && typeof answer.value === "object") {
+    return Object.entries(answer.value)
+      .map(([row, value]) => `${row}: ${Array.isArray(value) ? value.join(", ") : value}`)
+      .join("; ");
+  }
   if (answer.value !== null) return String(answer.value);
   return answer.normalizedAnswer ?? answer.rawAnswer ?? "";
 }
@@ -699,7 +711,7 @@ function canEncodeFallback(font: PDFFont, sourceFileName: string, answers: Rende
 }
 
 function answerPacketResult(
-  session: FormSession,
+  session: DocumentFormSession,
   bytes: Buffer,
   status: "draft" | "verified" | "fallback",
   source: SourceDocument | null,
@@ -725,7 +737,7 @@ function answerPacketResult(
 }
 
 function renderedResult(
-  session: FormSession,
+  session: DocumentFormSession,
   bytes: Buffer,
   contentType: string,
   fileName: string,
@@ -758,7 +770,7 @@ function renderedResult(
   };
 }
 
-function hasRenderTarget(session: FormSession, kind: RenderTarget["kind"]): boolean {
+function hasRenderTarget(session: DocumentFormSession, kind: RenderTarget["kind"]): boolean {
   return session.form.sections.some((section) =>
     section.fields.some((field) => field.renderTargets.some((target) => target.kind === kind))
   );

@@ -1,4 +1,4 @@
-export type PublicModelOperation = "compile" | "verify" | "realtime";
+export type PublicModelOperation = "compile" | "inspect" | "prepare" | "submit" | "verify" | "realtime";
 
 interface RateLimitRule {
   visitorLimit: number;
@@ -18,6 +18,9 @@ export interface RateLimitResult {
 
 const RULES: Record<PublicModelOperation, RateLimitRule> = {
   compile: { visitorLimit: 3, addressLimit: 12, windowMs: 60 * 60 * 1_000 },
+  inspect: { visitorLimit: 10, addressLimit: 30, windowMs: 60 * 60 * 1_000 },
+  prepare: { visitorLimit: 6, addressLimit: 18, windowMs: 60 * 60 * 1_000 },
+  submit: { visitorLimit: 6, addressLimit: 18, windowMs: 60 * 60 * 1_000 },
   verify: { visitorLimit: 10, addressLimit: 30, windowMs: 60 * 60 * 1_000 },
   realtime: { visitorLimit: 10, addressLimit: 30, windowMs: 60 * 60 * 1_000 }
 };

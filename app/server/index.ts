@@ -4,13 +4,28 @@ import path from "node:path";
 import { z } from "zod";
 import packageJson from "../../package.json" with { type: "json" };
 import {
-  buildDocumentExportPlan,
+  buildDocumentDeliveryPlan,
+  deliverDraftDocument,
+  deliverVerifiedDocument,
   DocumentRenderError,
-  renderDraftDocument,
-  renderVerifiedDocument,
   type RenderedDocument
-} from "../adapters/document_renderer";
+} from "../adapters/document_delivery_adapter";
+import { compileWebFormInspection } from "../adapters/web_form_compiler";
+import {
+  inspectRemoteWebForm,
+  WebFormProviderThrottleError,
+  WebFormResourceLimitError
+} from "../adapters/web_form_browser";
+import {
+  PlaywrightWebFormBrowserBoundary,
+  WebFormBrowserSessionError
+} from "../adapters/web_form_browser_session";
+import { buildWebFormDeliveryPlan } from "../adapters/web_form_delivery_adapter";
+import { assessWebFormProviderContract } from "../adapters/web_form_contract";
+import { WebFormFillError } from "../adapters/web_form_filler";
+import { prepareWebFormUrl, WebFormUrlPolicyError } from "../adapters/web_form_url_policy";
 import { AnswerValidationError } from "../domain/answers";
+import { isWebFormDefinition, listFormFields } from "../domain/form_definition";
 import { evaluateCompilation, toFormDefinition } from "../domain/compiler";
 import {
   buildSessionMemoryContext,
@@ -23,9 +38,12 @@ import {
 } from "../domain/memory";
 import {
   answerValueSchema,
+  webFormAccessSchema,
+  webFormPreparationSchema,
   verificationActionSchema,
   type FormSession,
-  type MemoryVault
+  type MemoryVault,
+  type WebFormFallbackReason
 } from "../domain/schemas";
 import {
   createFormSession,
@@ -68,6 +86,10 @@ import {
   VisitorStateRegistry,
   visitorIdFromCookie
 } from "./visitor_state";
+import {
+  redactOperationalDiagnostic,
+  WebFormOperationalTelemetry
+} from "./web_form_telemetry";
 
 const config = getConfig();
 const clientDirectory = path.resolve("dist/client");
@@ -86,6 +108,18 @@ const skipRequestSchema = z.object({
   sessionVersion: z.number().int().nonnegative()
 });
 const compiledSessionRequestSchema = z.object({ compilationId: z.string().uuid() });
+const webFormSessionRequestSchema = z.object({
+  url: z.string().trim().min(1).max(4_096),
+  access: webFormAccessSchema.default("public")
+});
+const prepareWebFormBrowserRequestSchema = z.object({
+  consent: z.literal(true),
+  sessionVersion: z.number().int().nonnegative()
+});
+const submitWebFormBrowserRequestSchema = z.object({
+  browserSessionId: z.string().uuid(),
+  sessionVersion: z.number().int().nonnegative()
+});
 const rememberAnswerRequestSchema = z.object({
   fieldId: z.string().min(1),
   subject: z.string().min(1),
@@ -111,16 +145,29 @@ let formCompiler: OpenAiFormCompiler | null = null;
 let finalVerifier: OpenAiFinalVerifier | null = null;
 const memoryVaultStore = new MemoryVaultFileStore(config.workDir);
 const resilienceTracer = new ResilienceTracer(config.workDir);
+const webFormOperationalTelemetry = new WebFormOperationalTelemetry(config.workDir);
+const webFormBrowserBoundary = new PlaywrightWebFormBrowserBoundary(null, {
+  actionTimeoutMs: config.webFormActionTimeoutMs,
+  navigationTimeoutMs: config.webFormInspectionTimeoutMs,
+  sessionTtlMs: config.webFormSessionTtlMs,
+  maxConcurrentSessions: config.webFormMaxConcurrentSessions,
+  maxRequests: config.webFormMaxRequests
+});
 const publicDemoRateLimiter = new PublicDemoRateLimiter();
 const visitorStates = new VisitorStateRegistry({
   publicDemo: config.publicDemo,
-  localMemoryVault: config.publicDemo ? createEmptyMemoryVault() : memoryVaultStore.load()
+  localMemoryVault: config.publicDemo ? createEmptyMemoryVault() : memoryVaultStore.load(),
+  onDiscard(state) {
+    void state.webForm?.browserSession?.dispose();
+  }
 });
 
 const server = createServer((request, response) => {
   void routeRequest(request, response).catch((error: unknown) => {
     const normalized = normalizeHttpError(error);
-    if (normalized.status === 500 || normalized.status === 502) console.error(normalized.logMessage);
+    if (normalized.status === 500 || normalized.status === 502) {
+      console.error(redactOperationalDiagnostic(normalized.logMessage));
+    }
     sendJson(response, normalized.status, { error: normalized.message });
   });
 });
@@ -129,6 +176,7 @@ server.listen(config.port, config.host, () => {
   console.log(`VocaForm API listening at http://${config.host}:${config.port}`);
   console.log(`OpenAI API key: ${config.openAiApiKey ? "configured" : "not configured"}`);
 });
+server.on("close", () => void webFormBrowserBoundary.dispose());
 
 async function routeRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
   const url = new URL(request.url || "/", `http://${request.headers.host || "localhost"}`);
@@ -251,8 +299,10 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
         bytes: Buffer.from(document.originalBytes)
       }
     };
+    await discardWebFormBrowser(state);
     state.session = null;
     state.sessionSource = null;
+    state.webForm = null;
     state.semanticVerification = null;
     resilienceTracer.record({
       event: "compiler",
@@ -273,12 +323,125 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
     if (!state.compilation.readiness.ready || !state.compilation.form) {
       throw new HttpError(422, "Resolve the readiness blockers before starting the interview.");
     }
+    await discardWebFormBrowser(state);
     state.session = createFormSession(state.compilation.form);
     state.sessionSource = state.compilationSource?.compilationId === state.compilation.id
       ? state.compilationSource.document
       : null;
+    state.webForm = null;
     state.semanticVerification = null;
     state.interviewToolExecutor.reset();
+    sendJson(response, 201, buildSessionView(state, state.session));
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/api/session/web-form") {
+    enforcePublicModelLimit("inspect", visitor.id, request, response);
+    const body = webFormSessionRequestSchema.parse(await readJsonBody(request));
+    const prepared = prepareWebFormUrl(body.url);
+    const inspectionStartedAt = performance.now();
+    let inspection;
+    try {
+      inspection = await inspectRemoteWebForm(prepared.url, {
+        timeoutMs: config.webFormInspectionTimeoutMs,
+        actionTimeoutMs: config.webFormActionTimeoutMs,
+        maxRequests: config.webFormMaxRequests,
+        maxConcurrentInspections: config.webFormMaxConcurrentSessions
+      });
+    } catch (error) {
+      webFormOperationalTelemetry.record({
+        event: "inspection",
+        provider: prepared.provider,
+        outcome: "error",
+        durationMs: elapsedMilliseconds(inspectionStartedAt),
+        failureCode: webFormFailureCode(error)
+      });
+      if (error instanceof WebFormProviderThrottleError) {
+        throw new HttpError(429, error.message);
+      }
+      if (error instanceof WebFormResourceLimitError) {
+        throw new HttpError(503, error.message);
+      }
+      const message = error instanceof Error ? error.message : "The public form could not be inspected.";
+      if (/executable doesn.t exist|browser.*not found/i.test(message)) {
+        throw new HttpError(503, "Web-form inspection is unavailable because Chromium is not installed on this server.");
+      }
+      if (/timeout|waiting for locator|waiting for selector/i.test(message)) {
+        throw new HttpError(
+          422,
+          "VocaForm could not find an anonymous responder page. Signed-in forms, quizzes, and CAPTCHA-protected forms are out of scope."
+        );
+      }
+      if (/net::|name_not_resolved|connection_refused/i.test(message)) {
+        throw new HttpError(502, "The provider form could not be reached. Check the public responder link and try again.");
+      }
+      throw error;
+    }
+    const providerContract = assessWebFormProviderContract(inspection);
+    const providerDriftDetected = providerContract.driftReasons.length > 0;
+    let compiled;
+    try {
+      compiled = compileWebFormInspection(inspection);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "The inspected form could not be prepared.";
+      throw new HttpError(422, message);
+    }
+    await discardWebFormBrowser(state);
+    state.session = createFormSession(compiled.form);
+    state.sessionSource = null;
+    state.webForm = {
+      access: body.access,
+      handoffUrl: prepared.url.href,
+      warnings: body.access === "external"
+        ? [
+            ...compiled.warnings,
+            ...(providerDriftDetected ? [providerDriftWarning()] : []),
+            "Sign in only on the provider page. VocaForm cannot access that browser session, so reviewed answers use a manual copy hand-off."
+          ]
+        : [
+            ...compiled.warnings,
+            ...(providerDriftDetected ? [providerDriftWarning()] : [])
+          ],
+      nativePreparationFallbackReason: body.access === "external"
+        ? null
+        : !config.webFormNativePreparation
+          ? "native_preparation_disabled"
+          : providerDriftDetected
+            ? "provider_drift"
+            : null,
+      preparation: webFormPreparationSchema.parse({ status: "not_started" }),
+      browserSession: null
+    };
+    state.compilation = null;
+    state.compilationSource = null;
+    state.semanticVerification = null;
+    state.interviewToolExecutor.reset();
+    webFormOperationalTelemetry.record({
+      event: "inspection",
+      provider: inspection.provider,
+      outcome: providerDriftDetected ? "fallback" : "success",
+      durationMs: elapsedMilliseconds(inspectionStartedAt),
+      questionCount: inspection.metrics.questionCount,
+      unsupportedControlCount: compiled.blockedFieldIds.length,
+      labelCoveragePercent: inspection.metrics.labelCoveragePercent,
+      recognizedTypeCoveragePercent: inspection.metrics.recognizedTypeCoveragePercent,
+      providerIdCoveragePercent: inspection.metrics.providerIdCoveragePercent,
+      usableLocatorCoveragePercent: inspection.metrics.usableLocatorCoveragePercent,
+      fallbackReason: providerDriftDetected ? "provider_drift" : null,
+      failureCode: providerDriftDetected ? "contract_drift" : null
+    });
+    const initialDeliveryPlan = buildWebFormDeliveryPlan(state.session, {
+      nativePreparationAllowed: body.access === "public" && config.webFormNativePreparation,
+      runtimeFallbackReason: state.webForm.nativePreparationFallbackReason
+    });
+    webFormOperationalTelemetry.record({
+      event: "delivery_decision",
+      provider: inspection.provider,
+      outcome: initialDeliveryPlan.mode === "browser_handoff" ? "success" : "fallback",
+      questionCount: listFormFields(state.session.form).length,
+      unsupportedControlCount: initialDeliveryPlan.blockedFieldIds.length,
+      fallbackReason: initialDeliveryPlan.fallbackReason
+    });
     sendJson(response, 201, buildSessionView(state, state.session));
     return;
   }
@@ -292,14 +455,153 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
     return;
   }
 
+  if (method === "POST" && url.pathname === "/api/web-form/browser/prepare") {
+    enforcePublicModelLimit("prepare", visitor.id, request, response);
+    const body = prepareWebFormBrowserRequestSchema.parse(await readJsonBody(request));
+    const session = requireCurrentSession(state, body.sessionVersion);
+    if (!isWebFormDefinition(session.form) || !state.webForm) {
+      throw new HttpError(422, "Only an active public web form can be prepared in the isolated browser.");
+    }
+    const deliveryPlan = buildWebFormDeliveryPlan(session, {
+      nativePreparationAllowed: state.webForm.access === "public" && config.webFormNativePreparation,
+      runtimeFallbackReason: state.webForm.nativePreparationFallbackReason
+    });
+    if (deliveryPlan.mode !== "browser_handoff") {
+      throw new HttpError(
+        422,
+        "This form needs the guided manual hand-off because its full deterministic control flow is not available."
+      );
+    }
+    const deterministic = verifySession(session, new Date(), {
+      approvedMemoryClaimIds: approvedMemoryClaimIds(state)
+    });
+    const unresolvedBlockers = deterministic.issues.filter(
+      (issue) => issue.severity === "blocker" && !issue.resolved
+    );
+    if (unresolvedBlockers.length > 0) {
+      throw new HttpError(422, "Resolve every blocking answer finding before transmitting answers to the provider.");
+    }
+
+    await state.webForm.browserSession?.dispose();
+    state.webForm.browserSession = null;
+    state.webForm.preparation = webFormPreparationSchema.parse({ status: "not_started" });
+    const preparationStartedAt = performance.now();
+    try {
+      const browserSession = await webFormBrowserBoundary.prepare({
+        session,
+        responderUrl: state.webForm.handoffUrl,
+        expiresInMs: config.webFormSessionTtlMs
+      });
+      state.webForm.browserSession = browserSession;
+      state.webForm.preparation = browserSession.view(session);
+      const placedControlCount = state.webForm.preparation.status === "awaiting_user_submit"
+        ? state.webForm.preparation.placedControls.length
+        : 0;
+      webFormOperationalTelemetry.record({
+        event: "preparation",
+        provider: session.form.source.provider,
+        outcome: "success",
+        durationMs: elapsedMilliseconds(preparationStartedAt),
+        placedControlCount,
+        verifiedControlCount: placedControlCount
+      });
+    } catch (error) {
+      state.webForm.preparation = preparationFailure(error);
+      const fallbackReason = fallbackReasonForRecovery(state.webForm.preparation.reason);
+      if (shouldPersistNativeFallback(fallbackReason)) {
+        state.webForm.nativePreparationFallbackReason = fallbackReason;
+        state.webForm.warnings = [...new Set([...state.webForm.warnings, providerFallbackWarning(fallbackReason)])];
+      }
+      webFormOperationalTelemetry.record({
+        event: "preparation",
+        provider: session.form.source.provider,
+        outcome: "fallback",
+        durationMs: elapsedMilliseconds(preparationStartedAt),
+        fallbackReason,
+        failureCode: webFormFailureCode(error)
+      });
+    }
+    sendJson(response, 200, buildSessionView(state, session));
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/api/web-form/browser/screenshot") {
+    const session = requireCurrentSession(state);
+    const webForm = state.webForm;
+    const browserSession = webForm?.browserSession;
+    if (!isWebFormDefinition(session.form) || !webForm || !browserSession) {
+      throw new HttpError(404, "No prepared provider view is available.");
+    }
+    try {
+      sendPng(response, await browserSession.screenshot(session));
+    } catch (error) {
+      webForm.preparation = browserSession.view(session);
+      const message = error instanceof Error ? error.message : "The prepared provider view is unavailable.";
+      throw new HttpError(410, message);
+    }
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/api/web-form/browser/submit") {
+    enforcePublicModelLimit("submit", visitor.id, request, response);
+    const body = submitWebFormBrowserRequestSchema.parse(await readJsonBody(request));
+    const session = requireCurrentSession(state, body.sessionVersion);
+    const browserSession = state.webForm?.browserSession;
+    if (!isWebFormDefinition(session.form) || !state.webForm || !browserSession) {
+      throw new HttpError(404, "No prepared provider form is awaiting your Submit action.");
+    }
+    const preparation = browserSession.view(session);
+    if (preparation.status !== "awaiting_user_submit"
+      || preparation.browserSessionId !== body.browserSessionId) {
+      throw new HttpError(409, "That prepared provider form is no longer current. Prepare a fresh copy.");
+    }
+    const submissionStartedAt = performance.now();
+    try {
+      state.webForm.preparation = await browserSession.submit(session);
+    } catch (error) {
+      state.webForm.preparation = browserSession.view(session);
+      if (state.webForm.preparation.status !== "recoverable") throw error;
+    }
+    const submissionPreparation = state.webForm.preparation;
+    if (submissionPreparation.status === "recoverable") {
+      const fallbackReason = fallbackReasonForRecovery(submissionPreparation.reason);
+      if (shouldPersistNativeFallback(fallbackReason)) {
+        state.webForm.nativePreparationFallbackReason = fallbackReason;
+        state.webForm.warnings = [...new Set([...state.webForm.warnings, providerFallbackWarning(fallbackReason)])];
+      }
+    }
+    webFormOperationalTelemetry.record({
+      event: "submission",
+      provider: session.form.source.provider,
+      outcome: submissionPreparation.status === "submitted"
+        ? "success"
+        : submissionPreparation.status === "submission_uncertain" ? "uncertain" : "fallback",
+      durationMs: elapsedMilliseconds(submissionStartedAt),
+      placedControlCount: "placedControlCount" in submissionPreparation
+        ? submissionPreparation.placedControlCount
+        : null,
+      verifiedControlCount: "placedControlCount" in submissionPreparation
+        ? submissionPreparation.placedControlCount
+        : null,
+      fallbackReason: submissionPreparation.status === "recoverable"
+        ? fallbackReasonForRecovery(submissionPreparation.reason)
+        : null,
+      failureCode: submissionPreparation.status === "submitted" ? null : "interrupted"
+    });
+    sendJson(response, 200, buildSessionView(state, session));
+    return;
+  }
+
   if (method === "POST" && url.pathname === "/api/session/fixture") {
     const body = fixtureRequestSchema.parse(await readJsonBody(request));
     const [form, source] = await Promise.all([
       loadFixture(body.fixtureId),
       loadFixtureSource(body.fixtureId)
     ]);
+    await discardWebFormBrowser(state);
     state.session = createFormSession(form);
     state.sessionSource = source;
+    state.webForm = null;
     state.compilation = null;
     state.compilationSource = null;
     state.semanticVerification = null;
@@ -311,6 +613,7 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
   if (method === "POST" && url.pathname === "/api/session/answer") {
     const body = answerRequestSchema.parse(await readJsonBody(request));
     const session = requireCurrentSession(state, body.sessionVersion);
+    await interruptWebFormBrowserForAnswerChange(state);
     state.session = saveTextAnswer(session, body.fieldId, body.value);
     state.semanticVerification = null;
     sendJson(response, 200, buildSessionView(state, state.session));
@@ -320,6 +623,7 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
   if (method === "POST" && url.pathname === "/api/session/skip") {
     const body = skipRequestSchema.parse(await readJsonBody(request));
     const session = requireCurrentSession(state, body.sessionVersion);
+    await interruptWebFormBrowserForAnswerChange(state);
     state.session = skipAnswer(session, body.fieldId);
     state.semanticVerification = null;
     sendJson(response, 200, buildSessionView(state, state.session));
@@ -411,6 +715,9 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
     if (!issue) throw new HttpError(404, "That verification finding is no longer active.");
     const previousRun = state.semanticVerification;
     const resolution = resolveVerificationIssue(session, issue, body);
+    if (resolution.session.version !== session.version) {
+      await interruptWebFormBrowserForAnswerChange(state);
+    }
     state.session = resolution.session;
     if (!resolution.answerChanged
       && previousRun?.sessionId === session.id
@@ -441,6 +748,7 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
   if (method === "POST" && url.pathname === "/api/memory/apply") {
     const body = applyMemoryRequestSchema.parse(await readJsonBody(request));
     const session = requireCurrentSession(state, body.sessionVersion);
+    await interruptWebFormBrowserForAnswerChange(state);
     state.session = confirmMemoryClaimForSession(
       session,
       state.memoryVault,
@@ -489,7 +797,10 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
         throw error;
       }
     }
-    if (execution.session.version !== session.version) state.semanticVerification = null;
+    if (execution.session.version !== session.version) {
+      await interruptWebFormBrowserForAnswerChange(state);
+      state.semanticVerification = null;
+    }
     state.session = execution.session;
     resilienceTracer.record({
       event: "interview_tool",
@@ -564,8 +875,10 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
   }
 
   if (method === "DELETE" && url.pathname === "/api/session") {
+    await discardWebFormBrowser(state);
     state.session = null;
     state.sessionSource = null;
+    state.webForm = null;
     state.semanticVerification = null;
     state.interviewToolExecutor.reset();
     response.writeHead(204, { "Cache-Control": "no-store" });
@@ -583,9 +896,12 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
 
   if (method === "POST" && url.pathname === "/api/export/draft") {
     const session = requireCurrentSession(state);
+    if (isWebFormDefinition(session.form)) {
+      throw new HttpError(422, "Web-form interviews use the guided hand-off and do not create a document export.");
+    }
     const startedAt = performance.now();
     try {
-      const document = renderDraftDocument(session);
+      const document = deliverDraftDocument(session);
       recordDocumentExport(document, startedAt);
       sendDocument(response, document);
     } catch (error) {
@@ -601,6 +917,9 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
 
   if (method === "POST" && url.pathname === "/api/export/final") {
     const session = requireCurrentSession(state);
+    if (isWebFormDefinition(session.form)) {
+      throw new HttpError(422, "VocaForm does not fill or submit provider forms in the public interview MVP.");
+    }
     const verification = buildFinalVerification(session, {
       approvedMemoryClaimIds: approvedMemoryClaimIds(state),
       modelAvailable: Boolean(config.openAiApiKey),
@@ -611,7 +930,7 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
     }
     const startedAt = performance.now();
     try {
-      const document = await renderVerifiedDocument(session, state.sessionSource);
+      const document = await deliverVerifiedDocument(session, state.sessionSource);
       recordDocumentExport(document, startedAt);
       sendDocument(response, document);
     } catch (error) {
@@ -634,6 +953,9 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse):
 }
 
 function buildSessionView(state: VisitorState, session: FormSession): SessionView {
+  if (state.webForm?.browserSession) {
+    state.webForm.preparation = state.webForm.browserSession.view(session);
+  }
   return {
     session,
     summary: summarizeSession(session),
@@ -644,8 +966,125 @@ function buildSessionView(state: VisitorState, session: FormSession): SessionVie
     }),
     nextField: nextOpenField(session),
     memory: buildSessionMemoryContext(state.memoryVault, session),
-    exportPlan: buildDocumentExportPlan(session, state.sessionSource)
+    deliveryPlan: isWebFormDefinition(session.form)
+      ? buildWebFormDeliveryPlan(session, {
+          nativePreparationAllowed: state.webForm?.access !== "external" && config.webFormNativePreparation,
+          runtimeFallbackReason: state.webForm?.nativePreparationFallbackReason ?? null
+        })
+      : buildDocumentDeliveryPlan(session, state.sessionSource),
+    webForm: isWebFormDefinition(session.form) && state.webForm ? {
+      access: state.webForm.access,
+      handoffUrl: state.webForm.handoffUrl,
+      warnings: state.webForm.warnings,
+      preparation: state.webForm.preparation
+    } : null
   };
+}
+
+async function discardWebFormBrowser(state: VisitorState): Promise<void> {
+  await state.webForm?.browserSession?.dispose();
+  if (state.webForm) state.webForm.browserSession = null;
+}
+
+async function interruptWebFormBrowserForAnswerChange(state: VisitorState): Promise<void> {
+  const browserSession = state.webForm?.browserSession;
+  if (!browserSession) return;
+  await browserSession.interrupt(
+    "session_changed",
+    "The canonical answers changed after the provider form was prepared. Prepare it again from the current answers."
+  );
+  if (state.session && state.webForm) {
+    state.webForm.preparation = browserSession.view(state.session);
+  }
+}
+
+function preparationFailure(error: unknown): Extract<
+  NonNullable<SessionView["webForm"]>["preparation"],
+  { status: "recoverable" }
+> {
+  const reason = error instanceof WebFormBrowserSessionError
+    ? error.code
+    : error instanceof WebFormFillError
+      ? error.code === "verification_failed" ? "verification_failed" : "provider_changed"
+      : "interrupted";
+  const message = error instanceof Error
+    ? error.message
+    : "The isolated provider session could not be prepared. Try again or use the manual hand-off.";
+  return webFormPreparationSchema.parse({
+    status: "recoverable",
+    reason,
+    message,
+    retryAllowed: true
+  }) as Extract<NonNullable<SessionView["webForm"]>["preparation"], { status: "recoverable" }>;
+}
+
+function fallbackReasonForRecovery(
+  reason: Extract<
+    NonNullable<SessionView["webForm"]>["preparation"],
+    { status: "recoverable" }
+  >["reason"]
+): WebFormFallbackReason {
+  const reasons: Record<typeof reason, WebFormFallbackReason> = {
+    expired: "expired_session",
+    interrupted: "interrupted",
+    session_changed: "stale_answers",
+    provider_changed: "provider_drift",
+    verification_failed: "verification_failed",
+    provider_throttled: "provider_throttled",
+    resource_limited: "resource_limited"
+  };
+  return reasons[reason];
+}
+
+function shouldPersistNativeFallback(reason: WebFormFallbackReason): boolean {
+  return [
+    "provider_drift",
+    "verification_failed",
+    "provider_throttled",
+    "resource_limited"
+  ].includes(reason);
+}
+
+function providerDriftWarning(): string {
+  return "The provider contract did not meet the confidence required for native preparation. The reviewed manual answer list remains available.";
+}
+
+function providerFallbackWarning(reason: WebFormFallbackReason): string {
+  if (reason === "provider_throttled") {
+    return "The provider throttled the isolated browser. Continue with the reviewed manual answer list or re-inspect later.";
+  }
+  if (reason === "resource_limited") {
+    return "The provider page exceeded the isolated browser limits. Continue with the reviewed manual answer list.";
+  }
+  if (reason === "verification_failed") {
+    return "A provider control could not be re-verified. No Submit action occurred; continue with the reviewed manual answer list.";
+  }
+  return providerDriftWarning();
+}
+
+function webFormFailureCode(
+  error: unknown
+): "url_policy" | "browser_unavailable" | "network" | "timeout" | "contract_drift"
+  | "provider_throttled" | "resource_limited" | "verification" | "interrupted" | "unknown" {
+  if (error instanceof WebFormProviderThrottleError
+    || (error instanceof WebFormBrowserSessionError && error.code === "provider_throttled")) {
+    return "provider_throttled";
+  }
+  if (error instanceof WebFormResourceLimitError
+    || (error instanceof WebFormBrowserSessionError && error.code === "resource_limited")) {
+    return "resource_limited";
+  }
+  if (error instanceof WebFormUrlPolicyError) return "url_policy";
+  if (error instanceof WebFormFillError) return "verification";
+  if (error instanceof WebFormBrowserSessionError && error.code === "provider_changed") {
+    return "contract_drift";
+  }
+  const message = error instanceof Error ? error.message : "";
+  if (/executable doesn.t exist|browser.*not found/i.test(message)) return "browser_unavailable";
+  if (/timeout|waiting for locator|waiting for selector/i.test(message)) return "timeout";
+  if (/net::|name_not_resolved|connection_refused/i.test(message)) return "network";
+  if (error instanceof WebFormBrowserSessionError) return "interrupted";
+  return "unknown";
 }
 
 function approvedMemoryClaimIds(state: VisitorState): Set<string> {
@@ -695,7 +1134,7 @@ function enforcePublicModelLimit(
   if (result.allowed) return;
   response.setHeader("Retry-After", String(result.retryAfterSeconds));
   throw new HttpError(429,
-    "This public demo has reached its temporary AI request limit. Continue with a reviewed sample or try again later.");
+    "This public demo has reached its temporary request limit. Continue with the reviewed manual path or try again later.");
 }
 
 function clientAddress(request: IncomingMessage): string {
@@ -740,6 +1179,15 @@ async function readTextBody(request: IncomingMessage, maxBytes: number): Promise
   return Buffer.concat(chunks).toString("utf8");
 }
 
+function sendPng(response: ServerResponse, bytes: Buffer): void {
+  response.writeHead(200, {
+    "Cache-Control": "no-store",
+    "Content-Type": "image/png",
+    "Content-Length": bytes.length
+  });
+  response.end(bytes);
+}
+
 class HttpError extends Error {
   constructor(readonly status: number, message: string) {
     super(message);
@@ -765,6 +1213,9 @@ function normalizeHttpError(error: unknown): { status: number; message: string; 
   }
   if (error instanceof DocumentRenderError) {
     return { status: 422, message: error.message, logMessage: error.message };
+  }
+  if (error instanceof WebFormUrlPolicyError) {
+    return { status: 400, message: error.message, logMessage: error.message };
   }
   const message = error instanceof Error ? error.message : "Unexpected server error.";
   return { status: 500, message: "VocaForm encountered an unexpected server error.", logMessage: message };

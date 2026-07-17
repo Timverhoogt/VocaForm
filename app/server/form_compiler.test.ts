@@ -21,6 +21,12 @@ const config: AppConfig = {
   openAiRealtimeTranscriptionModel: "gpt-4o-mini-transcribe",
   openAiRealtimeLanguage: "",
   openAiSafetyIdentifier: "synthetic-test",
+  webFormNativePreparation: true,
+  webFormInspectionTimeoutMs: 30_000,
+  webFormActionTimeoutMs: 10_000,
+  webFormSessionTtlMs: 900_000,
+  webFormMaxConcurrentSessions: 4,
+  webFormMaxRequests: 300,
   workDir: "work",
   sofficeBin: "soffice"
 };

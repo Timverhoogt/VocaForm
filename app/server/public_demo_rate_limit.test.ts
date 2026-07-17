@@ -27,4 +27,23 @@ describe("public demo model request limits", () => {
     }
     expect(limiter.consume("compile", "visitor-a", "address-a", 60 * 60 * 1_000 + 1).allowed).toBe(true);
   });
+
+  it("bounds read-only provider inspection separately from model compilation", () => {
+    const limiter = new PublicDemoRateLimiter();
+    for (let index = 0; index < 10; index += 1) {
+      expect(limiter.consume("inspect", "visitor-a", "address-a", index).allowed).toBe(true);
+    }
+    expect(limiter.consume("inspect", "visitor-a", "address-a", 11).allowed).toBe(false);
+    expect(limiter.consume("compile", "visitor-a", "address-a", 12).allowed).toBe(true);
+  });
+
+  it("bounds browser preparation and submission independently", () => {
+    const limiter = new PublicDemoRateLimiter();
+    for (let index = 0; index < 6; index += 1) {
+      expect(limiter.consume("prepare", "visitor-a", "address-a", index).allowed).toBe(true);
+      expect(limiter.consume("submit", "visitor-a", "address-a", index).allowed).toBe(true);
+    }
+    expect(limiter.consume("prepare", "visitor-a", "address-a", 7).allowed).toBe(false);
+    expect(limiter.consume("submit", "visitor-a", "address-a", 7).allowed).toBe(false);
+  });
 });

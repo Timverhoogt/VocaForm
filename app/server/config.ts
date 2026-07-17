@@ -23,6 +23,12 @@ export interface AppConfig {
   openAiRealtimeTranscriptionModel: string;
   openAiRealtimeLanguage: string;
   openAiSafetyIdentifier: string;
+  webFormNativePreparation: boolean;
+  webFormInspectionTimeoutMs: number;
+  webFormActionTimeoutMs: number;
+  webFormSessionTtlMs: number;
+  webFormMaxConcurrentSessions: number;
+  webFormMaxRequests: number;
   workDir: string;
   sofficeBin: string;
 }
@@ -47,9 +53,44 @@ export function getConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     openAiRealtimeTranscriptionModel: env.OPENAI_REALTIME_TRANSCRIPTION_MODEL?.trim() || "gpt-4o-mini-transcribe",
     openAiRealtimeLanguage: env.OPENAI_REALTIME_LANGUAGE?.trim() || "",
     openAiSafetyIdentifier: env.OPENAI_SAFETY_IDENTIFIER?.trim() || "",
+    webFormNativePreparation: !parseDisabled(env.VOCAFORM_WEBFORM_NATIVE_PREPARATION),
+    webFormInspectionTimeoutMs: parseBoundedInteger(
+      env.VOCAFORM_WEBFORM_INSPECTION_TIMEOUT_MS,
+      30_000,
+      5_000,
+      60_000
+    ),
+    webFormActionTimeoutMs: parseBoundedInteger(
+      env.VOCAFORM_WEBFORM_ACTION_TIMEOUT_MS,
+      10_000,
+      2_000,
+      30_000
+    ),
+    webFormSessionTtlMs: parseBoundedInteger(
+      env.VOCAFORM_WEBFORM_SESSION_TTL_MS,
+      15 * 60 * 1_000,
+      60_000,
+      30 * 60 * 1_000
+    ),
+    webFormMaxConcurrentSessions: parseBoundedInteger(
+      env.VOCAFORM_WEBFORM_MAX_CONCURRENT_SESSIONS,
+      parseBoolean(env.VOCAFORM_PUBLIC_DEMO) ? 2 : 4,
+      1,
+      8
+    ),
+    webFormMaxRequests: parseBoundedInteger(
+      env.VOCAFORM_WEBFORM_MAX_REQUESTS,
+      300,
+      50,
+      1_000
+    ),
     workDir: path.resolve(env.VOCAFORM_WORK_DIR?.trim() || "work"),
     sofficeBin: env.SOFFICE_BIN?.trim() || "soffice"
   };
+}
+
+function parseDisabled(value: string | undefined): boolean {
+  return ["0", "false", "no", "off", "disabled"].includes(value?.trim().toLowerCase() || "");
 }
 
 function parseBoolean(value: string | undefined): boolean {
@@ -68,6 +109,16 @@ function parseRealtimeReasoningEffort(value: string | undefined): AppConfig["ope
 function parseNumber(value: string | undefined, fallback: number, minimum: number, maximum: number): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Math.min(maximum, Math.max(minimum, parsed)) : fallback;
+}
+
+function parseBoundedInteger(
+  value: string | undefined,
+  fallback: number,
+  minimum: number,
+  maximum: number
+): number {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) ? Math.min(maximum, Math.max(minimum, parsed)) : fallback;
 }
 
 function parseReasoningEffort(value: string | undefined): AppConfig["openAiReasoningEffort"] {

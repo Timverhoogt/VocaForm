@@ -1,11 +1,11 @@
 import {
   compilationReadinessSchema,
-  formDefinitionSchema,
+  documentFormDefinitionSchema,
   type CompilationIssue,
   type CompilationReadiness,
+  type DocumentFormDefinition,
+  type DocumentFormField,
   type FormCompilerOutput,
-  type FormDefinition,
-  type FormField
 } from "./schemas";
 import { isSafeMemoryCandidate } from "./memory";
 import { canonicalizeLocale, normalizeLocale } from "./locale";
@@ -15,7 +15,7 @@ const LOW_CONFIDENCE_WARNING = 0.85;
 
 export interface CompilationSource {
   fileName: string;
-  format: FormDefinition["source"]["format"];
+  format: DocumentFormDefinition["source"]["format"];
   searchableText: string | null;
 }
 
@@ -34,8 +34,8 @@ export function enforceCompilerSafety(output: FormCompilerOutput): FormCompilerO
   };
 }
 
-export function toFormDefinition(output: FormCompilerOutput, source: CompilationSource): FormDefinition {
-  return formDefinitionSchema.parse({
+export function toFormDefinition(output: FormCompilerOutput, source: CompilationSource): DocumentFormDefinition {
+  return documentFormDefinitionSchema.parse({
     id: slug(output.document.title),
     version: "ai-compiled-1",
     title: output.document.title,
@@ -108,7 +108,7 @@ export function evaluateCompilation(
 }
 
 function evaluateField(
-  field: FormField,
+  field: DocumentFormField,
   fieldIds: Set<string>,
   sourceText: string | null,
   issues: CompilationIssue[]
@@ -148,7 +148,8 @@ function evaluateField(
     issues.push(issue(`${field.id}:validation`, "blocker", "invalid_validation", field.id,
       `The validation limits for “${field.label}” conflict.`));
   }
-  if ((field.type === "single_choice" || field.type === "multi_choice") && field.options.length === 0) {
+  if ((field.type === "single_choice" || field.type === "multi_choice" || field.type === "ranking")
+    && field.options.length === 0) {
     issues.push(issue(`${field.id}:options`, "blocker", "choice_without_options", field.id,
       `“${field.label}” is a choice question, but no choices were found.`));
   }
@@ -169,7 +170,7 @@ function evidenceAppearsInSource(evidence: string, source: string): boolean {
   return haystack.includes(needle);
 }
 
-function maxConfidence(field: FormField): number {
+function maxConfidence(field: DocumentFormField): number {
   return field.evidence.reduce((maximum, evidence) => Math.max(maximum, evidence.confidence), 0);
 }
 

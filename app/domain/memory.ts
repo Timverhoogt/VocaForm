@@ -314,6 +314,11 @@ export function isActiveClaim(claim: MemoryClaim, now = new Date()): boolean {
 export function formatMemoryValue(value: AnswerValue): string {
   if (Array.isArray(value)) return value.join(", ");
   if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "object") {
+    return Object.entries(value)
+      .map(([row, answer]) => `${row}: ${Array.isArray(answer) ? answer.join(", ") : answer}`)
+      .join("; ");
+  }
   return String(value).trim();
 }
 

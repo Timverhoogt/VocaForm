@@ -2,7 +2,12 @@ import { PDFDocument, PDFHexString, PDFName, PDFString } from "pdf-lib";
 import { describe, expect, it } from "vitest";
 import { readZip } from "../../src/docx_package.mjs";
 import { extractParagraphs } from "../../src/docx_text.mjs";
-import { formDefinitionSchema, type FormDefinition, type FormSession } from "../domain/schemas";
+import {
+  documentFormDefinitionSchema,
+  type DocumentFormDefinition,
+  type DocumentFormField,
+  type FormSession
+} from "../domain/schemas";
 import { createFormSession, listFields, saveTextAnswer } from "../domain/session";
 import { loadGoldenCompilerFixtures } from "../evals/golden_fixtures";
 import {
@@ -227,20 +232,20 @@ describe("Goal 6 document renderer", () => {
   });
 });
 
-async function goldenForm(id: string): Promise<FormDefinition> {
+async function goldenForm(id: string): Promise<DocumentFormDefinition> {
   const fixture = (await loadGoldenCompilerFixtures()).find((candidate) => candidate.id === id);
   if (!fixture) throw new Error(`Missing fixture: ${id}`);
   return fixture.form;
 }
 
-function answerEverySchoolField(form: FormDefinition): FormSession {
+function answerEverySchoolField(form: DocumentFormDefinition): FormSession {
   return listFields(form).reduce(
     (session, field) => saveTextAnswer(session, field.id, `Recorded answer for ${field.id}`),
     createFormSession(form, new Date("2026-07-14T12:00:00.000Z"))
   );
 }
 
-function answerMedicalForm(form: FormDefinition): FormSession {
+function answerMedicalForm(form: DocumentFormDefinition): FormSession {
   const values: Record<string, string> = {
     patient_name: "Taylor Morgan",
     date_of_birth: "1988-05-12",
@@ -258,11 +263,11 @@ function answerMedicalForm(form: FormDefinition): FormSession {
 }
 
 function changeField(
-  form: FormDefinition,
+  form: DocumentFormDefinition,
   fieldId: string,
-  changes: Partial<FormDefinition["sections"][number]["fields"][number]>
-): FormDefinition {
-  return formDefinitionSchema.parse({
+  changes: Partial<DocumentFormField>
+): DocumentFormDefinition {
+  return documentFormDefinitionSchema.parse({
     ...form,
     sections: form.sections.map((section) => ({
       ...section,

@@ -11,7 +11,13 @@ import {
   validateAnswerValue
 } from "./answers";
 import type { SessionMemoryContext } from "./memory";
-import { isFieldApplicable, listFields, summarizeSession, verifySession } from "./session";
+import {
+  isFieldApplicable,
+  isFieldInterviewable,
+  listFields,
+  summarizeSession,
+  verifySession
+} from "./session";
 
 export { AnswerValidationError as InterviewValidationError } from "./answers";
 
@@ -176,7 +182,9 @@ export function buildInterviewContext(
 
 export function getRemainingQuestions(session: FormSession): InterviewQuestion[] {
   return session.form.sections.flatMap((section) => section.fields
-    .filter((field) => isFieldApplicable(session, field) && isOpen(session.answers[field.id]))
+    .filter((field) => isFieldInterviewable(field)
+      && isFieldApplicable(session, field)
+      && isOpen(session.answers[field.id]))
     .map((field) => ({
       fieldId: field.id,
       sectionTitle: section.title,

@@ -6,7 +6,7 @@ VocaForm turns everyday paperwork into a calm, accessible conversation. Upload a
 
 **Built for [OpenAI Build Week](https://openai.devpost.com/) · Apps for Your Life**
 
-[Build Week roadmap](./BUILD_WEEK_ROADMAP.md) · [Submission evidence](./SUBMISSION_EVIDENCE.md) · [Resilience report](./RESILIENCE_REPORT.md) · [Three-minute demo plan](./DEMO_VIDEO_PLAN.md)
+[Build Week roadmap](./BUILD_WEEK_ROADMAP.md) · [Web forms roadmap](./WEB_FORMS_ROADMAP.md) · [Supported web controls](./WEB_FORM_SUPPORTED_CONTROLS.md) · [Submission evidence](./SUBMISSION_EVIDENCE.md) · [Resilience report](./RESILIENCE_REPORT.md) · [Three-minute demo plan](./DEMO_VIDEO_PLAN.md)
 
 <p align="center">
   <img src="./app/e2e/memory_flow.visual.spec.ts-snapshots/landing-desktop-chromium-darwin.png" alt="VocaForm's accessible upload screen, with reviewed sample forms and the Upload, Talk, Review, Download journey" width="900">
@@ -20,7 +20,7 @@ A generic chatbot is not enough. A useful form assistant must stay grounded in t
 
 ## What VocaForm does
 
-1. **Upload** — Accepts PDF, DOCX, TXT, and Markdown forms, with three reviewed synthetic samples available offline.
+1. **Choose** — Accepts public anonymous Google Forms and Microsoft Forms responder links, opt-in organization-restricted forms on trusted deployments, plus PDF, DOCX, TXT, and Markdown documents, with three reviewed synthetic samples available offline.
 2. **Understand** — GPT-5.6 Sol compiles an unfamiliar form into a strict, evidence-backed schema containing fields, requiredness, dependencies, source evidence, and render targets.
 3. **Talk** — OpenAI Realtime conducts a natural speech-to-speech interview. Versioned application tools save validated answers as the conversation happens; a keyboard-accessible text path provides the same core journey.
 4. **Review** — Deterministic checks find missing or invalid answers, then a separate non-mutating GPT-5.6 Sol pass can flag contradictions, ambiguity, and unsupported normalization.
@@ -28,6 +28,39 @@ A generic chatbot is not enough. A useful form assistant must stay grounded in t
 6. **Reuse—only by choice** — Eligible contact facts can be remembered, corrected, forgotten, and individually confirmed on a later form. Medical and other sensitive answers are excluded by default.
 
 The result is one coherent **Upload → Talk → Review → Download** product journey rather than a collection of model demos.
+
+### New post-submission feature: public web-form interview and native hand-off
+
+The complete web-form workflow in Goals 1–6A is a [new Devpost feature](https://devpost.com/software/vocaform/updates/797250) built after the original submission video was finalized. The video remains unchanged: it demonstrates the original document workflow and does not show web-form support.
+
+Paste a public anonymous Google Forms or Microsoft Forms responder link on the choose-form screen and VocaForm inspects the rendered responder page without entering answers or submitting. The deterministic inspection is compiled into the same provider-independent, versioned session used by documents, so voice, text, explicit Memory Vault consent, and verification follow the existing trust boundaries.
+
+For a complete single-page form with ordinary deterministic controls, Goal 4 offers a native hand-off. A fresh, specific checkbox authorizes answer transmission into a temporary isolated provider browser. VocaForm fills and re-reads every supported control, binds the result to the exact canonical session and inspected source revision, and exposes both a screenshot and an accessible text review. It then stops at `awaiting_user_submit`; only the user’s provider-labelled Submit button opens the write gate for one click.
+
+Current-page-only pagination, multi-page flows, missing stable locators, file uploads, ranking/matrix controls, quizzes, CAPTCHA, externally signed-in forms, and unsupported branching retain the guided manual hand-off. Expiry, interruption, provider drift, or an answer change closes the isolated copy and produces an explicit retryable state instead of risking stale placement or submission.
+
+Goal 5 supports forms that require sign-in without turning VocaForm into a credential proxy. Select **Sign-in required** and VocaForm reads only question structure visible before authentication. The sanitized responder link opens separately on Google or Microsoft, where passwords, MFA, passkeys, cookies, and organization policy stay entirely in the user's browser. Because that session is intentionally not shared back, the final step is a reviewed manual answer list beside **Open signed-in form**; native filling remains limited to public forms. See [the Goal 5 threat model](./WEB_FORM_AUTHENTICATION_THREAT_MODEL.md).
+
+Goal 6A hardens that deterministic boundary with pre-fill provider contract checks, a second control-value verification immediately before Submit, confirmed-versus-indeterminate submission outcomes, bounded browser concurrency/requests/timeouts, provider preparation and submission rate limits, and aggregate-only operational telemetry. Provider drift, throttling, browser limits, or insufficient locator confidence switch to the reviewed manual answer list. The exact boundary is published in the [supported-control matrix](./WEB_FORM_SUPPORTED_CONTROLS.md).
+
+Run the deterministic, network-free provider fixtures:
+
+```bash
+npm run eval:webforms
+npm run eval:webform-domain
+npm run eval:webform-interview
+npm run eval:webform-delivery
+```
+
+Live Google and Microsoft contract checks use separate commands and are never part of the deterministic pull-request gate. Configure disposable public contract forms as described in the [supported-control matrix](./WEB_FORM_SUPPORTED_CONTROLS.md), then run `npm run check:webforms:live`.
+
+Optionally inspect the currently rendered page of a public responder link with an isolated Chromium context:
+
+```bash
+npm run inspect:webform -- "https://forms.office.com/r/your-public-form-id"
+```
+
+The inspection runner strips prefilled-answer parameters, blocks non-provider traffic and every request method except `GET`, `HEAD`, and `OPTIONS`, disables form submission and beacons before provider code runs, and emits only the responder origin plus a URL fingerprint. Native preparation keeps that read-only gate until the user’s final explicit Submit action.
 
 ### Language posture
 
@@ -45,6 +78,7 @@ Models can understand, converse, and advise; application code remains authoritat
 | OpenAI Realtime | Conduct the low-latency voice interview and request tool calls | Bypass field, value, provenance, or session-version validation |
 | TypeScript domain layer | Own answers, dependencies, consent, memory eligibility, verification, and export gates | Accept invalid or stale writes |
 | Document adapters | Fill copied DOCX/PDF sources and report exact placement coverage | Mutate the uploaded source or hide a fallback |
+| Web-form browser boundary | Fill and re-read consented provider controls in an isolated context | Use stale answers, leave provider scope, or click Submit without the user |
 
 Every accepted answer retains provenance from the document, conversation, confirmed memory, or an explicit user correction. Any change invalidates the previous semantic pass, and verified export is tied to the exact current session version.
 
@@ -84,7 +118,7 @@ The repository history is intentionally preserved so judges can inspect the pre-
 
 - Node.js 20 or newer
 - npm
-- Chromium only for the optional browser test suite
+- Playwright Chromium for public web-form inspection and the optional browser suite (`npx playwright install chromium`)
 - LibreOffice only when visually compiling arbitrary DOCX uploads; set `SOFFICE_BIN` if `soffice` is not on `PATH`
 
 ### Run the reviewed samples without an API key
@@ -93,6 +127,7 @@ The repository history is intentionally preserved so judges can inspect the pre-
 git clone https://github.com/Timverhoogt/VocaForm.git
 cd VocaForm
 npm install
+npx playwright install chromium
 npm run dev
 ```
 
@@ -123,6 +158,10 @@ OPENAI_API_KEY=your-key-here
 
 The checked-in defaults select `gpt-5.6-sol` for compilation and verification and `gpt-realtime-2.1` for conversation. All model and server overrides are documented in [.env.example](./.env.example).
 
+Forms that require Google or Microsoft sign-in use the external-provider hand-off on every deployment; no feature flag or credential-handling configuration is required. Review [the authentication threat model](./WEB_FORM_AUTHENTICATION_THREAT_MODEL.md) for the exact limitations.
+
+Set `VOCAFORM_WEBFORM_NATIVE_PREPARATION=false` to disable native preparation without weakening the deterministic inspection and test gates. Browser hardening limits can be tuned with `VOCAFORM_WEBFORM_INSPECTION_TIMEOUT_MS`, `VOCAFORM_WEBFORM_ACTION_TIMEOUT_MS`, `VOCAFORM_WEBFORM_SESSION_TTL_MS`, `VOCAFORM_WEBFORM_MAX_CONCURRENT_SESSIONS`, and `VOCAFORM_WEBFORM_MAX_REQUESTS`; all values are bounded by server-side safety ranges.
+
 Generate the reviewed medical PDF and school DOCX sources:
 
 ```bash
@@ -144,7 +183,7 @@ Open [http://127.0.0.1:5177](http://127.0.0.1:5177).
 
 The repository includes a Docker image and a frozen Render Blueprint in [`render.yaml`](./render.yaml). The container installs LibreOffice for layout-sensitive DOCX compilation, runs as an unprivileged user, binds to `0.0.0.0`, and exposes `/api/health`. Import the Blueprint, provide `OPENAI_API_KEY` through the Render dashboard prompt, and deploy the exact release-candidate commit. The secret is never stored in the Blueprint.
 
-`VOCAFORM_PUBLIC_DEMO=true` adds a visible synthetic-data warning and isolates each browser in an opaque, HTTP-only demo session. Active forms, retained source bytes, verification state, and Memory Vault changes are not visible to other visitors and are never written to demo storage. Public sessions are bounded to 100 active visitors, expire after at most two hours, and may disappear on a server restart. Expensive anonymous model routes are rate-limited per visitor and network address (compilation 3/hour; verification and Realtime 10/hour). The free Render instance also uses an ephemeral filesystem and can cold-start after idling; this remains a judge preview, not production or private-data storage. Full deployment and signed-out QA steps are in [SUBMISSION_CHECKLIST.md](./SUBMISSION_CHECKLIST.md).
+`VOCAFORM_PUBLIC_DEMO=true` adds a visible synthetic-data warning and isolates each browser in an opaque, HTTP-only demo session. Active forms, retained source bytes, verification state, and Memory Vault changes are not visible to other visitors and are never written to demo storage. Public sessions are bounded to 100 active visitors, expire after at most two hours, and may disappear on a server restart. Anonymous routes are rate-limited per visitor and network address (compilation 3/hour; provider inspection, verification, and Realtime 10/hour; native preparation and Submit 6/hour). The free Render instance also uses an ephemeral filesystem and can cold-start after idling; this remains a judge preview, not production or private-data storage. Full deployment and signed-out QA steps are in [SUBMISSION_CHECKLIST.md](./SUBMISSION_CHECKLIST.md).
 
 ## Evidence, not just a happy path
 
@@ -158,8 +197,9 @@ The repository contains synthetic golden forms, answer keys, deterministic evalu
 | Native renderer coverage | 45/45 demo answers placed; original sources preserved |
 | Repeated north-star resilience | 5/5 isolated passes with duplicate-call suppression and reconnect recovery |
 | Safe memory journey | Exactly three approved contact claims reused; zero sensitive claims stored |
-| Unit and adapter tests | 72/72 across 18 Vitest files |
-| Desktop/mobile browser suite | 16/16 Playwright journeys and visual checks |
+| External sign-in boundary | No credential or MFA inputs in VocaForm; signed-in access forces the reviewed manual hand-off |
+| Unit and adapter tests | 122/122 across 27 Vitest files |
+| Desktop/mobile browser suite | 26/26 Playwright journeys, accessibility, and visual checks |
 
 These are results on reviewed synthetic fixtures, not claims of clinical accuracy or universal form support. The current live `gpt-5.6-sol` replay is recorded separately from the deterministic approved-output score in [SUBMISSION_EVIDENCE.md](./SUBMISSION_EVIDENCE.md) and its privacy-safe JSON evidence file. The earlier two-pass run on the then-current 52-field set remains historical evidence rather than being combined with the current result.
 
@@ -237,7 +277,7 @@ Scanned, non-AcroForm PDFs currently receive an answer packet rather than a pixe
 - Rendering works from copied bytes and verifies that the retained source is unchanged.
 - The local Memory Vault stores only explicitly approved eligible claims, uses user-only file permissions, and supports visible correction and deletion.
 - Medical, financial, identity-document, child-identity, consent, support, and long free-form answers are excluded from memory by default.
-- Privacy-safe traces accept timings, outcomes, token counts, known tool names, cache state, and render coverage—but no filenames, IDs, answers, transcripts, prompts, or error messages.
+- Privacy-safe traces accept timings, outcomes, token counts, known tool names, cache state, render coverage, and aggregate web-form coverage/fallback metrics—but no filenames, responder URLs, tenant values, provider IDs, answers, screenshots, transcripts, prompts, or free-form error messages.
 - The full journey has semantic landmarks, managed focus, live status and error announcements, keyboard operation, an equal text path, 44 CSS-pixel targets, 200% text reflow, reduced-motion support, forced-color support, and WCAG AA color contrast.
 
 This Build Week local store is not encrypted, and VocaForm is not represented as production medical software or as satisfying any healthcare compliance regime. Only synthetic data is committed.
@@ -255,6 +295,7 @@ This Build Week local store is not encrypted, and VocaForm is not represented as
 ## Project documentation
 
 - [BUILD_WEEK_ROADMAP.md](./BUILD_WEEK_ROADMAP.md) — architecture decisions, scope cuts, acceptance criteria, and submission plan
+- [WEB_FORM_SUPPORTED_CONTROLS.md](./WEB_FORM_SUPPORTED_CONTROLS.md) — deterministic Google/Microsoft control support, native-preparation confidence gates, and live-check operation
 - [SUBMISSION_EVIDENCE.md](./SUBMISSION_EVIDENCE.md) — live Sol replay and deterministic release evidence
 - [SUBMISSION_CHECKLIST.md](./SUBMISSION_CHECKLIST.md) — deployment, video, signed-out QA, and Devpost handoff
 - [PRE_SUBMISSION_REVIEW.md](./PRE_SUBMISSION_REVIEW.md) — UI/UX, locale, low-vision, screen-reader, and output-accessibility gate

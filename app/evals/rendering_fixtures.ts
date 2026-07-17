@@ -7,9 +7,13 @@ import {
   type PDFPage
 } from "pdf-lib";
 import { writeZip } from "../../src/docx_package.mjs";
-import { formDefinitionSchema, type FormDefinition } from "../domain/schemas";
+import {
+  documentFormDefinitionSchema,
+  type DocumentFormDefinition,
+  type DocumentFormField
+} from "../domain/schemas";
 
-export function buildSchoolDocxRenderingFixture(form: FormDefinition): Buffer {
+export function buildSchoolDocxRenderingFixture(form: DocumentFormDefinition): Buffer {
   const body = [
     paragraph("SCHOOL START QUESTIONNAIRE", "TemplateKicker"),
     paragraph(form.title, "TemplateTitle"),
@@ -94,8 +98,8 @@ export async function buildMedicalPdfRenderingFixture(): Promise<Buffer> {
   return Buffer.from(await pdf.save({ useObjectStreams: false, updateFieldAppearances: false }));
 }
 
-export function withMedicalPdfTargets(form: FormDefinition): FormDefinition {
-  return formDefinitionSchema.parse({
+export function withMedicalPdfTargets(form: DocumentFormDefinition): DocumentFormDefinition {
+  return documentFormDefinitionSchema.parse({
     ...form,
     sections: form.sections.map((section) => ({
       ...section,
@@ -157,7 +161,7 @@ function pdfSection(page: PDFPage, bold: PDFFont, title: string, y: number): num
   return y - 29;
 }
 
-function anchorFor(field: FormDefinition["sections"][number]["fields"][number]): string {
+function anchorFor(field: DocumentFormField): string {
   return field.renderTargets.find((target) => target.kind === "docx_anchor")?.locator ?? field.label;
 }
 

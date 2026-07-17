@@ -1,9 +1,11 @@
 import { z } from "zod";
 import {
-  formDefinitionSchema,
+  documentFormDefinitionSchema,
+  type DocumentFormDefinition,
+  type DocumentFormField,
   type FormDefinition,
-  type FormField
 } from "../domain/schemas";
+import { isDocumentFormDefinition } from "../domain/form_definition";
 import { normalizeLocale } from "../domain/locale";
 
 const legacyProfileFieldSchema = z.object({
@@ -39,10 +41,10 @@ const legacyFormSchema = z.object({
   }))
 });
 
-export function fromLegacyForm(input: unknown): FormDefinition {
+export function fromLegacyForm(input: unknown): DocumentFormDefinition {
   const legacy = legacyFormSchema.parse(input);
 
-  return formDefinitionSchema.parse({
+  return documentFormDefinitionSchema.parse({
     id: legacy.form_id,
     version: legacy.version,
     title: legacy.title,
@@ -65,6 +67,9 @@ export function fromLegacyForm(input: unknown): FormDefinition {
 }
 
 export function toLegacyForm(form: FormDefinition): object {
+  if (!isDocumentFormDefinition(form)) {
+    throw new Error("Web forms cannot be converted to the legacy document schema.");
+  }
   return {
     form_id: form.id,
     version: form.version,
@@ -95,7 +100,7 @@ export function toLegacyForm(form: FormDefinition): object {
   };
 }
 
-function toCanonicalField(field: z.infer<typeof legacyFieldSchema>): FormField {
+function toCanonicalField(field: z.infer<typeof legacyFieldSchema>): DocumentFormField {
   const anchor = field.render_anchor?.trim();
   return {
     id: field.id,
@@ -127,8 +132,8 @@ function toCanonicalField(field: z.infer<typeof legacyFieldSchema>): FormField {
   };
 }
 
-function normalizeFieldType(value: string): FormField["type"] {
-  const supported: FormField["type"][] = [
+function normalizeFieldType(value: string): DocumentFormField["type"] {
+  const supported: DocumentFormField["type"][] = [
     "short_text",
     "long_text",
     "email",
@@ -139,12 +144,12 @@ function normalizeFieldType(value: string): FormField["type"] {
     "single_choice",
     "multi_choice"
   ];
-  return supported.includes(value as FormField["type"])
-    ? value as FormField["type"]
+  return supported.includes(value as DocumentFormField["type"])
+    ? value as DocumentFormField["type"]
     : "long_text";
 }
 
-function normalizeSourceFormat(value: string): FormDefinition["source"]["format"] {
+function normalizeSourceFormat(value: string): DocumentFormDefinition["source"]["format"] {
   if (value === "docx" || value === "pdf" || value === "text") return value;
   return "fixture";
 }

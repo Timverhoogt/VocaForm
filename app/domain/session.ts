@@ -15,6 +15,12 @@ import {
   parseTextAnswer,
   validateAnswerValue
 } from "./answers";
+import {
+  isDocumentFormField,
+  isWebFormDefinition,
+  isWebFormField,
+  listFormFields
+} from "./form_definition";
 
 export interface SessionSummary {
   totalFields: number;
@@ -30,7 +36,7 @@ export interface VerificationOptions {
 }
 
 export function listFields(form: FormDefinition): FormField[] {
-  return form.sections.flatMap((section) => section.fields);
+  return listFormFields(form);
 }
 
 export function findField(form: FormDefinition, fieldId: string): FormField | null {
@@ -68,6 +74,9 @@ export function saveTextAnswer(
 ): FormSession {
   const field = findField(session.form, fieldId);
   if (!field) throw new Error(`Unknown field: ${fieldId}`);
+  if (!isFieldApplicable(session, field)) {
+    throw new Error(`${field.label} is not currently applicable to this form path.`);
+  }
 
   const canonicalValue = Array.isArray(value) ? value : parseTextAnswer(field, value);
   if (Array.isArray(value)) validateAnswerValue(field, canonicalValue);
@@ -162,10 +171,13 @@ export function summarizeSession(session: FormSession): SessionSummary {
   const answeredFields = fields.filter((field) => session.answers[field.id]?.status === "answered").length;
   const handledFields = fields.filter((field) => isFieldHandled(session, field)).length;
   const openFields = fields.filter(
-    (field) => isFieldApplicable(session, field) && isOpen(session.answers[field.id])
+    (field) => isFieldInterviewable(field)
+      && isFieldApplicable(session, field)
+      && isOpen(session.answers[field.id])
   ).length;
   const requiredOpen = fields.filter(
-    (field) => isFieldApplicable(session, field)
+    (field) => isFieldInterviewable(field)
+      && isFieldApplicable(session, field)
       && field.required
       && session.answers[field.id]?.status !== "answered"
   ).length;
@@ -182,7 +194,9 @@ export function summarizeSession(session: FormSession): SessionSummary {
 
 export function nextOpenField(session: FormSession): FormField | null {
   return listFields(session.form).find(
-    (field) => isFieldApplicable(session, field) && isOpen(session.answers[field.id])
+    (field) => isFieldInterviewable(field)
+      && isFieldApplicable(session, field)
+      && isOpen(session.answers[field.id])
   ) ?? null;
 }
 
@@ -195,7 +209,7 @@ export function verifySession(
 
   for (const field of listFields(session.form)) {
     const answer = session.answers[field.id];
-    if (field.renderTargets.length === 0) {
+    if (isDocumentFormField(field) && field.renderTargets.length === 0) {
       const fallbackReady = field.renderFallback === "append_answer_packet";
       issues.push(makeIssue(
         field.id,
@@ -208,6 +222,31 @@ export function verifySession(
         ["confirm"]
       ));
     }
+    if (isWebFormField(field)
+      && isFieldApplicable(session, field)
+      && field.support.status === "unsupported") {
+      issues.push(makeIssue(
+        field.id,
+        "blocker",
+        "unsupported_control",
+        `“${field.label}” uses a web control VocaForm cannot safely deliver yet.`,
+        field.support.reason,
+        []
+      ));
+    } else if (isWebFormField(field)
+      && isFieldApplicable(session, field)
+      && field.deliveryTargets.length === 0) {
+      issues.push(makeIssue(
+        field.id,
+        "blocker",
+        "delivery_target_missing",
+        `VocaForm has no safe native control target for “${field.label}”.`,
+        "No provider-independent delivery target is available for this web-form field.",
+        []
+      ));
+    }
+    if (!isFieldInterviewable(field)
+      && (!answer || answer.status === "unanswered" || answer.status === "skipped")) continue;
 
     if (!isFieldApplicable(session, field)) {
       if (answer?.status === "answered" || answer?.status === "needs_followup") {
@@ -303,6 +342,36 @@ export function verifySession(
     }
   }
 
+  if (isWebFormDefinition(session.form)) {
+    const webForm = session.form;
+    if (webForm.flow.coverage === "current_page_only") {
+      issues.push(makeIssue(
+        null,
+        "blocker",
+        "unsupported_flow",
+        "The provider has later pages that were not inspected.",
+        "VocaForm prepared the visible questions and will use a guided manual hand-off for any remaining pages.",
+        []
+      ));
+    }
+    const ordinals = new Map(webForm.flow.pages.map((page) => [page.id, page.ordinal]));
+    const unsupportedEdges = webForm.flow.edges.filter((edge) => {
+      if (edge.kind === "unknown") return webForm.flow.coverage === "complete";
+      if (edge.toPageId === null) return false;
+      return (ordinals.get(edge.toPageId) ?? 0) <= (ordinals.get(edge.fromPageId) ?? 0);
+    });
+    if (unsupportedEdges.length > 0) {
+      issues.push(makeIssue(
+        null,
+        "blocker",
+        "unsupported_flow",
+        "This form uses branching VocaForm cannot safely interview yet.",
+        "Only deterministic forward-only page branches are supported in the public web-form MVP.",
+        []
+      ));
+    }
+  }
+
   for (const answer of Object.values(session.prefillAnswers)) {
     if (answer.status !== "answered") continue;
     if (!hasAnswerProvenance(answer, options.approvedMemoryClaimIds)) {
@@ -335,23 +404,15 @@ export function verifySession(
 }
 
 export function isFieldApplicable(session: FormSession, field: FormField): boolean {
-  if (field.dependencies.length === 0) return true;
-  return field.dependencies.every((dependency) => {
-    const answer = session.answers[dependency.fieldId];
-    if (!answer || answer.status !== "answered" || answer.value === null) return false;
-    const actual = answer.value;
-    if (dependency.operator === "is_present") return true;
-    const expected = dependency.value ?? "";
-    if (dependency.operator === "includes") {
-      return Array.isArray(actual)
-        ? actual.some((value) => equal(value, expected))
-        : normalizeComparable(actual).includes(normalizeComparable(expected));
-    }
-    const matches = Array.isArray(actual)
-      ? actual.some((value) => equal(value, expected))
-      : equal(actual, expected);
-    return dependency.operator === "not_equals" ? !matches : matches;
-  });
+  if (isWebFormDefinition(session.form) && isWebFormField(field)) {
+    if (webFormPageDisposition(session, field.pageId) !== "reachable") return false;
+  }
+  return field.dependencies.every((dependency) => dependencyResult(session, dependency) === true);
+}
+
+export function isFieldInterviewable(field: FormField): boolean {
+  return !isWebFormField(field)
+    || !["file_upload", "unsupported", "matrix", "ranking"].includes(field.type);
 }
 
 function createEmptyAnswer(fieldId: string, updatedAt: string): AnswerRecord {
@@ -396,12 +457,85 @@ function isOpen(answer: AnswerRecord | undefined): boolean {
 function isFieldHandled(session: FormSession, field: FormField): boolean {
   const answer = session.answers[field.id];
   if (answer?.status === "answered" || answer?.status === "skipped") return true;
+  if (!isFieldInterviewable(field)) return true;
+  if (isWebFormDefinition(session.form) && isWebFormField(field)) {
+    const disposition = webFormPageDisposition(session, field.pageId);
+    if (disposition === "excluded") return true;
+    if (disposition === "pending") return false;
+  }
   if (field.dependencies.length === 0) return false;
   const dependenciesDecided = field.dependencies.every((dependency) => {
     const dependencyAnswer = session.answers[dependency.fieldId];
     return dependencyAnswer?.status === "answered" || dependencyAnswer?.status === "skipped";
   });
   return dependenciesDecided && !isFieldApplicable(session, field);
+}
+
+function webFormPageDisposition(
+  session: FormSession,
+  pageId: string
+): "reachable" | "pending" | "excluded" {
+  if (!isWebFormDefinition(session.form)) return "reachable";
+  const reachable = traverseWebFormPages(session, false);
+  if (reachable.has(pageId)) return "reachable";
+  const possible = traverseWebFormPages(session, true);
+  return possible.has(pageId) ? "pending" : "excluded";
+}
+
+function traverseWebFormPages(session: FormSession, includeUnresolved: boolean): Set<string> {
+  if (!isWebFormDefinition(session.form)) return new Set();
+  const reached = new Set<string>();
+  const queue = [session.form.flow.entryPageId];
+
+  while (queue.length > 0) {
+    const pageId = queue.shift() as string;
+    if (reached.has(pageId)) continue;
+    reached.add(pageId);
+    const outgoing = session.form.flow.edges.filter((edge) => edge.fromPageId === pageId);
+    const conditional = outgoing.filter((edge) => edge.kind === "conditional");
+    const next = outgoing.filter((edge) => edge.kind === "next");
+    const matches = conditional.filter((edge) => dependencyResult(session, edge.condition) === true);
+    const unresolved = conditional.filter((edge) => dependencyResult(session, edge.condition) === null);
+    let targets: string[];
+
+    if (matches.length > 0) {
+      targets = matches.map((edge) => edge.toPageId);
+    } else if (unresolved.length > 0) {
+      const possibleTargets = [...new Set([
+        ...conditional.map((edge) => edge.toPageId),
+        ...next.map((edge) => edge.toPageId)
+      ])];
+      targets = includeUnresolved || possibleTargets.length === 1 ? possibleTargets : [];
+    } else {
+      targets = next.map((edge) => edge.toPageId);
+    }
+    for (const target of targets) {
+      if (!reached.has(target)) queue.push(target);
+    }
+  }
+  return reached;
+}
+
+function dependencyResult(
+  session: FormSession,
+  dependency: FormField["dependencies"][number]
+): boolean | null {
+  const answer = session.answers[dependency.fieldId];
+  if (!answer || answer.status === "unanswered" || answer.status === "needs_followup") return null;
+  if (answer.status !== "answered" || answer.value === null) return false;
+  const actual = answer.value;
+  if (dependency.operator === "is_present") return true;
+  if (typeof actual === "object" && !Array.isArray(actual)) return false;
+  const expected = dependency.value ?? "";
+  if (dependency.operator === "includes") {
+    return Array.isArray(actual)
+      ? actual.some((value) => equal(value, expected))
+      : normalizeComparable(actual).includes(normalizeComparable(expected));
+  }
+  const matches = Array.isArray(actual)
+    ? actual.some((value) => equal(value, expected))
+    : equal(actual, expected);
+  return dependency.operator === "not_equals" ? !matches : matches;
 }
 
 function equal(actual: string | number | boolean, expected: string): boolean {
@@ -416,6 +550,9 @@ function normalizeComparable(value: string | number | boolean): string {
 }
 
 export function isVerificationIssueResolved(session: FormSession, issue: VerificationIssue): boolean {
+  if (issue.kind === "unsupported_control"
+    || issue.kind === "delivery_target_missing"
+    || issue.kind === "unsupported_flow") return false;
   const resolution = session.verificationResolutions[issue.id];
   if (!resolution || !issue.actions.includes(resolution.action)) return false;
   const fieldIds = [issue.fieldId, ...issue.relatedFieldIds].filter((fieldId): fieldId is string => Boolean(fieldId));
@@ -449,7 +586,7 @@ function hasAnswerProvenance(answer: AnswerRecord, approvedMemoryClaimIds?: Read
 }
 
 function makeIssue(
-  fieldId: string,
+  fieldId: string | null,
   severity: VerificationIssue["severity"],
   kind: VerificationIssue["kind"],
   message: string,
@@ -458,7 +595,7 @@ function makeIssue(
   relatedFieldIds: string[] = []
 ): VerificationIssue {
   return {
-    id: `${fieldId}:${kind}`,
+    id: `${fieldId ?? "form"}:${kind}`,
     fieldId,
     relatedFieldIds,
     severity,

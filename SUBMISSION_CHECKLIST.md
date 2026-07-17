@@ -110,3 +110,13 @@ Render's free web service has an ephemeral filesystem and can spin down after 15
 - [x] Submit by July 21 at 20:00 CEST (submitted July 16 at 18:27 CEST; submission ID `1092030`).
 - [x] Reopen the submitted project and confirm the OpenAI Build Week relationship and submitted timestamp persisted.
 - [x] Save a screenshot of the submission receipt (`Screenshot 2026-07-16 at 20.36.42.png`).
+
+### Post-submission web-form feature
+
+- [x] Frame the complete web-form workflow (roadmap Goals 1–6A), rather than Goal 6A alone, as one new Devpost feature.
+- [x] Prepare the final feature title, copy, claim boundary, and evidence links in `DEVPOST_SUBMISSION.md`.
+- [x] State in the README, roadmap, submission copy, and video plan that this feature was built after the original video was finalized.
+- [x] Keep the existing 2:08 YouTube video unchanged; it demonstrates only the original document workflow.
+- [x] Publish the feature through Devpost's feature-update UI (`/software/vocaform/updates/797250`).
+- [x] Reopen the public project page signed out and confirm the feature heading, Goals 1–6A scope, Goal 6B exclusion, and unchanged-video note are present.
+- [x] Commit, push, deploy, and verify the implementation (`7e9ff05`); confirm the signed-out Render page exposes the web-form link and access controls and `/api/health` reports `status: ok`.
