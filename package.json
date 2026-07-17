@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "check": "npm run typecheck && npm run lint && npm run test && npm run eval:compiler && npm run eval:verifier && npm run eval:renderer && npm run eval:resilience && npm run check:legacy",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run eval:compiler && npm run eval:verifier && npm run eval:renderer && npm run eval:resilience && npm run eval:webforms && npm run eval:webform-domain && npm run eval:webform-interview && npm run eval:webform-delivery && npm run check:legacy",
     "check:experience": "tsx app/evals/run_release_audit.ts --experience-final",
     "check:release": "tsx app/evals/run_release_audit.ts",
     "check:resilience": "npm run check && npm run build && npm run test:visual",
@@ -13,6 +13,9 @@
     "check-anchors": "node src/check_docx_anchors.mjs",
     "check-session": "node src/check_session.mjs",
     "check:legacy": "node src/check.mjs && node --check src/server.mjs && node --check public/app.js && node --check app/server/openai_client.mjs",
+    "check:webforms:live": "tsx app/evals/run_webform_live_contract_check.ts",
+    "check:webform:live:google": "tsx app/evals/run_webform_live_contract_check.ts --provider=google_forms",
+    "check:webform:live:microsoft": "tsx app/evals/run_webform_live_contract_check.ts --provider=microsoft_forms",
     "dev": "concurrently --kill-others --names api,web --prefix-colors blue,green \"tsx watch app/server/index.ts\" \"vite\"",
     "dev:e2e": "concurrently --kill-others --names api,web --prefix-colors blue,green \"tsx app/server/index.ts\" \"vite\"",
     "eval:compiler": "tsx app/evals/run_compiler_eval.ts",
@@ -21,6 +24,10 @@
     "eval:resilience": "tsx app/evals/run_resilience_eval.ts --runs 5",
     "eval:verifier": "tsx app/evals/run_verifier_eval.ts",
     "eval:verifier:live": "tsx app/evals/run_live_verifier_eval.ts",
+    "eval:webform-domain": "tsx app/evals/run_webform_domain_eval.ts",
+    "eval:webform-delivery": "tsx app/evals/run_webform_delivery_eval.ts",
+    "eval:webform-interview": "tsx app/evals/run_webform_interview_eval.ts",
+    "eval:webforms": "tsx app/evals/run_webform_inspection.ts",
     "evidence:forced-colors": "tsx app/evals/capture_forced_colors.ts",
     "fixtures:rendering": "tsx app/evals/build_rendering_fixtures.ts",
     "demo": "node src/demo.mjs",
@@ -28,6 +35,7 @@
     "import-google-doc": "node src/import_google_doc_schema.mjs",
     "import-pdf": "node src/import_pdf_schema.mjs",
     "import-text": "node src/import_text_schema.mjs",
+    "inspect:webform": "tsx app/evals/run_webform_inspection.ts",
     "lint": "eslint app playwright.config.ts vite.config.ts",
     "make-demo-state": "node src/make_demo_state.mjs --out work/demo_state.json",
     "render-docx": "node src/render_docx.mjs",
@@ -47,6 +55,7 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@playwright/test": "^1.61.1",
     "openai": "^6.46.0",
     "pdf-lib": "^1.17.1",
     "react": "^19.2.7",
@@ -56,7 +65,6 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
     "@eslint/js": "^10.0.1",
-    "@playwright/test": "^1.61.1",
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

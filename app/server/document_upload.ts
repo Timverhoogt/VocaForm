@@ -9,7 +9,7 @@ import { z } from "zod";
 import { readZip } from "../../src/docx_package.mjs";
 import { extractParagraphs } from "../../src/docx_text.mjs";
 import { extractPdfText } from "../../src/form_importers.mjs";
-import type { FormDefinition } from "../domain/schemas";
+import type { DocumentFormDefinition } from "../domain/schemas";
 
 const execFileAsync = promisify(execFile);
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
@@ -33,7 +33,7 @@ export type CompilerInputContent =
 
 export interface PreparedCompilerDocument {
   fileName: string;
-  format: FormDefinition["source"]["format"];
+  format: DocumentFormDefinition["source"]["format"];
   byteLength: number;
   originalBytes: Buffer;
   searchableText: string | null;

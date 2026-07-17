@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { PDFDocument } from "pdf-lib";
 import { renderVerifiedDocument, type RenderedDocument } from "../adapters/document_renderer";
-import type { FormDefinition, FormSession } from "../domain/schemas";
+import type { DocumentFormDefinition, FormSession } from "../domain/schemas";
 import { createFormSession, listFields, saveTextAnswer } from "../domain/session";
 import { loadGoldenCompilerFixtures } from "./golden_fixtures";
 import {
@@ -79,20 +79,20 @@ console.log(JSON.stringify({
   outputDirectory: outputDirectory ? path.resolve(outputDirectory) : null
 }, null, 2));
 
-function requireForm(id: string): FormDefinition {
+function requireForm(id: string): DocumentFormDefinition {
   const fixture = fixtures.find((candidate) => candidate.id === id);
   if (!fixture) throw new Error(`Missing renderer fixture: ${id}`);
   return fixture.form;
 }
 
-function answerSchool(form: FormDefinition): FormSession {
+function answerSchool(form: DocumentFormDefinition): FormSession {
   return listFields(form).reduce(
     (session, field) => saveTextAnswer(session, field.id, `Recorded answer for ${field.id}`),
     createFormSession(form, new Date("2026-07-14T12:00:00.000Z"))
   );
 }
 
-function answerMedical(form: FormDefinition): FormSession {
+function answerMedical(form: DocumentFormDefinition): FormSession {
   const values: Record<string, string> = {
     patient_name: "Taylor Morgan",
     date_of_birth: "1988-05-12",

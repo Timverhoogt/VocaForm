@@ -400,6 +400,7 @@ footer {
   box-shadow: none;
   font-weight: 800;
   transition: background 160ms ease, transform 160ms ease;
+  text-decoration: none;
 }
 
 .primary-button span {
@@ -532,6 +533,438 @@ footer {
   max-width: 530px;
   margin: 1rem 0 0;
   font-size: 0.82rem;
+}
+
+.web-form-link {
+  width: min(100%, 680px);
+  padding: 1rem;
+  border: 1px solid #bed3c6;
+  border-radius: 1rem;
+  background: #f4faf8;
+}
+
+.web-form-link > label {
+  display: block;
+  margin-bottom: 0.55rem;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.web-form-link > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 0.6rem;
+}
+
+.web-form-link > div input {
+  min-width: 0;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #aebbb4;
+  border-radius: 0.65rem;
+  background: white;
+}
+
+.web-form-link button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding-inline: 1rem;
+  border: 0;
+  border-radius: 0.65rem;
+  color: white;
+  background: var(--green);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.web-form-link > p {
+  margin: 0.65rem 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.web-form-access {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0.9rem 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.web-form-access legend {
+  margin-bottom: 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.web-form-access label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.6rem;
+  min-height: 4.4rem;
+  align-items: start;
+  padding: 0.75rem;
+  border: 1px solid #bed3c6;
+  border-radius: 0.75rem;
+  background: white;
+  cursor: pointer;
+}
+
+.web-form-access label:has(input:checked) {
+  border-color: var(--green);
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+
+.web-form-access label.disabled {
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+
+.web-form-access input,
+.authentication-start-consent input {
+  width: 1.15rem;
+  min-height: 1.15rem;
+  margin-top: 0.15rem;
+}
+
+.web-form-access span {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.web-form-access small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.web-form-link > .authentication-start-consent {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.65rem;
+  margin: 0.8rem 0 0;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: #e9f3ef;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.authentication-boundary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.9rem;
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border: 1px solid #bed3c6;
+  border-radius: 1rem;
+  background: #f4faf8;
+}
+
+.authentication-boundary > span {
+  display: grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  place-items: center;
+  border-radius: 999px;
+  color: white;
+  background: var(--green);
+  font-weight: 900;
+}
+
+.authentication-boundary p {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.authentication-frame img {
+  min-height: 16rem;
+}
+
+.authentication-controls {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: #fafaf8;
+}
+
+.authentication-controls h3,
+.authentication-controls > p {
+  margin-top: 0;
+}
+
+.authentication-controls > p {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.authentication-controls > div {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.authentication-input-control {
+  display: grid;
+  gap: 0.45rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+}
+
+.authentication-input-control > label {
+  font-weight: 800;
+}
+
+.authentication-input-control > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 0.6rem;
+}
+
+.authentication-input-control input {
+  min-width: 0;
+  padding: 0.75rem 0.8rem;
+  border: 1px solid #aebbb4;
+  border-radius: 0.65rem;
+  background: white;
+}
+
+.authentication-input-control button {
+  padding: 0.7rem 0.9rem;
+  border: 0;
+  border-radius: 0.65rem;
+  color: white;
+  background: var(--green);
+  font-weight: 800;
+}
+
+.authentication-input-control small {
+  color: var(--muted);
+}
+
+.authentication-provider-action {
+  justify-self: start;
+}
+
+.web-form-limitations {
+  margin: 1.25rem 0 1.7rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid #e3c4b3;
+  border-radius: 0.9rem;
+  background: #fff7f1;
+}
+
+.web-form-limitations h3 {
+  margin: 0 0 0.6rem;
+  font-size: 1rem;
+}
+
+.web-form-limitations ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: #68402b;
+}
+
+.web-form-limitations li + li {
+  margin-top: 0.45rem;
+}
+
+.handoff-boundary {
+  display: flex;
+  gap: 0.9rem;
+  margin: 1.3rem 0;
+  padding: 1rem;
+  border-radius: 1rem;
+  background: #eef4ef;
+}
+
+.handoff-boundary > span {
+  display: grid;
+  flex: 0 0 auto;
+  width: 1.8rem;
+  height: 1.8rem;
+  place-items: center;
+  border-radius: 999px;
+  color: white;
+  background: var(--green);
+  font-weight: 800;
+}
+
+.handoff-boundary p {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.handoff-answer-list {
+  margin-top: 1.8rem;
+}
+
+.handoff-answer-list > h3 {
+  margin: 0 0 1rem;
+  font-size: 1.4rem;
+}
+
+.handoff-section {
+  margin-top: 1.25rem;
+}
+
+.handoff-section h4 {
+  margin: 0 0 0.55rem;
+  font-size: 1rem;
+}
+
+.handoff-answer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(12rem, 1fr);
+  gap: 0.75rem 1.2rem;
+  padding: 0.9rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.handoff-answer > div {
+  display: grid;
+  align-content: start;
+  gap: 0.2rem;
+}
+
+.handoff-answer span,
+.handoff-answer small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.handoff-answer p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+.handoff-answer small {
+  grid-column: 1 / -1;
+}
+
+.handoff-answer.manual {
+  margin-inline: -0.6rem;
+  padding-inline: 0.6rem;
+  border-radius: 0.6rem;
+  background: #fff7f1;
+}
+
+.handoff-actions {
+  margin-top: 1.8rem;
+}
+
+.consent-boundary,
+.preparation-recovery,
+.placed-control-list {
+  margin-top: 1.35rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: #fafaf8;
+}
+
+.consent-boundary label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.8rem;
+  align-items: start;
+  font-weight: 750;
+}
+
+.consent-boundary input {
+  width: 1.2rem;
+  min-height: 1.2rem;
+  margin-top: 0.2rem;
+}
+
+.consent-boundary ul,
+.placed-control-list ul {
+  margin: 0.9rem 0 0;
+  padding-left: 1.25rem;
+  color: var(--muted);
+}
+
+.preparation-recovery {
+  border-color: #d9a689;
+  color: #68391f;
+  background: #fff7f1;
+}
+
+.preparation-recovery p,
+.placed-control-list > p {
+  margin: 0.35rem 0 0;
+}
+
+.provider-review-frame {
+  margin: 1.5rem 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: #ececea;
+}
+
+.provider-review-frame img {
+  display: block;
+  width: 100%;
+  max-height: 32rem;
+  object-fit: contain;
+  object-position: top center;
+  background: white;
+}
+
+.provider-review-frame figcaption {
+  padding: 0.65rem 0.85rem;
+  color: var(--muted);
+  background: #fafaf8;
+  font-size: 0.78rem;
+}
+
+.placed-control-list h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.placed-control-list code {
+  font-size: 0.8em;
+  overflow-wrap: anywhere;
+}
+
+.placed-control-list ul {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0;
+  list-style: none;
+}
+
+.placed-control-list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.7rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--line);
+}
+
+.placed-control-list li > span {
+  color: var(--green);
+  font-weight: 900;
+}
+
+.placed-control-list li div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.placed-control-list li small {
+  color: var(--muted);
+}
+
+.submit-provider {
+  background: #24533f;
 }
 
 .understanding-grid {
@@ -2115,6 +2548,17 @@ footer {
 
   .sample-options {
     grid-template-columns: 1fr;
+  }
+
+  .web-form-link > div,
+  .web-form-access,
+  .authentication-input-control > div,
+  .handoff-answer {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .web-form-link button {
+    justify-content: center;
   }
 
   .form-actions,

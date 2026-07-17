@@ -4,6 +4,10 @@
 
 **Devpost draft:** [devpost.com/software/vocaform](https://devpost.com/software/vocaform) · project ID `1332705`
 
+**Post-submission feature:** The complete web-form workflow (roadmap Goals 1–6A) was published through Devpost's feature-update UI on July 17, 2026: [New: live web-form interviews and consented native hand-off](https://devpost.com/software/vocaform/updates/797250). It was added after the original submission video was finalized. Keep the existing video unchanged; it demonstrates the original document workflow and does not show web-form support.
+
+**Deployment note:** As verified immediately after publishing the update, the public Render URL still serves the original upload-only build. Do not present that URL as web-form evidence until the implementation has been committed, pushed, deployed, and checked signed out.
+
 ## Required fields
 
 | Field | Value |
@@ -31,6 +35,24 @@
 | 27951 | Plugin/developer-tool instructions | Not applicable |
 
 The recorded Codex task contains the majority of the core Build Week implementation across the typed foundation, GPT-5.6 form compiler, and Realtime interview. Running `/feedback` in that task returned the Session ID recorded above.
+
+## Devpost Add feature copy
+
+**Feature title:** New: live web-form interviews and consented native hand-off
+
+**Feature description:**
+
+VocaForm now extends its accessible interview from uploaded documents to live Google Forms and Microsoft Forms. Paste a responder link and VocaForm performs a read-only, isolated inspection of the rendered form, compiles it into the same provider-independent session used by documents, and guides the user through voice or text answers, optional Memory Vault reuse, and final verification.
+
+For a complete public single-page form made from supported ordinary controls, the user can give fresh, specific consent to prepare the native provider form. VocaForm fills an isolated copy, re-reads every control, shows both a screenshot and an accessible text review, and binds the prepared result to the exact session and inspected source revision. It stops before submission. Only the user can open the final write gate and click the provider-labelled Submit button.
+
+Unsupported controls, multi-page forms, unstable locators, provider drift, resource limits, and sign-in-required forms fall back to a reviewed manual answer list. Authentication always stays on Google or Microsoft's own page: VocaForm never asks for provider passwords, MFA codes, passkeys, cookies, or reusable browser state. Pre-fill contract checks, a second pre-submit value check, bounded browser resources, rate limits, and aggregate-only telemetry make failures explicit and recoverable.
+
+This is a new post-submission feature covering the completed web-form roadmap (Goals 1–6A). Goal 6B remains long term and is not part of this release.
+
+**Video note:** This feature was built after the original 2:08 demo video was finalized, so the video remains unchanged. The video demonstrates VocaForm's original document workflow and does not show web-form support.
+
+**Published update:** https://devpost.com/software/vocaform/updates/797250
 
 ## Short description
 

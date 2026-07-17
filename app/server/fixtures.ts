@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { SourceDocument } from "../adapters/document_renderer";
-import type { FormDefinition } from "../domain/schemas";
+import type { DocumentFormDefinition } from "../domain/schemas";
 import type { FixtureSummary } from "../shared/api";
 import { fromLegacyForm } from "../adapters/legacy_form_adapter";
 import {
@@ -47,7 +47,7 @@ export function listFixtures(): FixtureSummary[] {
   }));
 }
 
-export async function loadFixture(fixtureId: string): Promise<FormDefinition> {
+export async function loadFixture(fixtureId: string): Promise<DocumentFormDefinition> {
   const fixture = fixtures.find((candidate) => candidate.id === fixtureId);
   if (!fixture) throw new Error(`Unknown fixture: ${fixtureId}`);
   if (fixture.id === "activity-permission") {

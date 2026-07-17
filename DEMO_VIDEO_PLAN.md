@@ -4,6 +4,8 @@
 **Target:** 2:45–2:50, landscape 16:9, 1080p, public on YouTube<br>
 **Hard submission constraint:** under three minutes, showing the working project with narration explaining VocaForm, Codex, and GPT-5.6
 
+**Post-video feature freeze:** The complete web-form workflow in roadmap Goals 1–6A is a new feature built after this video was finalized. Do not re-record, re-edit, or replace the existing 2:08 submission video for that feature. The video remains evidence of the original document workflow and intentionally does not show web-form support; Devpost's **Add feature** entry carries the new release.
+
 The exact narration and pickup list are in [`demo/DEMO_SCRIPT.md`](./demo/DEMO_SCRIPT.md). Upload [`demo/vocaform-demo.en.srt`](./demo/vocaform-demo.en.srt) as the initial YouTube caption track and retime it against the final edit.
 
 ## Recommended HeyGen workflow

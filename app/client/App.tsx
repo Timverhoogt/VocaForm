@@ -15,9 +15,15 @@ import type {
   AnswerValue,
   FormField,
   MemoryClaim,
+  WebFormAccess,
   VerificationAction,
   VerificationIssue
 } from "../domain/schemas";
+import {
+  isWebFormDefinition,
+  listFormFields,
+  sourceDisplayName
+} from "../domain/form_definition";
 import type {
   CompilationResult,
   FixtureSummary,
@@ -181,6 +187,28 @@ export function App() {
     });
   }
 
+  async function openWebForm(url: string, access: WebFormAccess) {
+    await runAction(async () => {
+      const session = await requestJson<SessionView>("/api/session/web-form", {
+        method: "POST",
+        body: JSON.stringify({ url, access })
+      });
+      setView(session);
+      setCompilation(null);
+      setStage("upload");
+      setDownloadComplete(null);
+      requestStageFocus();
+      setNotice(access === "external"
+        ? "The visible questions were inspected. Sign in only in the provider tab; VocaForm never receives your credentials."
+        : "The public form was inspected without entering or submitting any answers.");
+    }, {
+      pendingMessage: access === "external"
+        ? "Inspecting the signed-out question structure without opening a credential flow…"
+        : "Inspecting the public responder page without filling or submitting it…",
+      retryLabel: "Try inspecting the form again"
+    });
+  }
+
   async function startCompiledForm() {
     if (!compilation) return;
     await runAction(async () => {
@@ -286,7 +314,7 @@ export function App() {
       setView(nextView);
       setDownloadComplete(null);
       setNotice(nextView.verification.readyForFinalExport
-        ? `Final verification passed. ${nextView.exportPlan.description}`
+        ? `Final verification passed. ${nextView.deliveryPlan.description}`
         : verificationNotice(nextView));
     }, {
       pendingMessage: "Checking your saved answers without changing them…",
@@ -335,15 +363,71 @@ export function App() {
     await runAction(async () => {
       await downloadVerified();
       setDownloadComplete("final");
-      setNotice(view?.exportPlan.kind === "filled_pdf"
+      setNotice(view?.deliveryPlan.kind === "filled_pdf"
         ? "Download complete. Your completed PDF is ready. The uploaded original was not changed."
-        : view?.exportPlan.kind === "filled_docx"
+        : view?.deliveryPlan.kind === "filled_docx"
           ? "Download complete. Your completed Word document is ready. The uploaded original was not changed."
           : "Download complete. Your verified answer packet is ready.");
     }, {
       pendingMessage: "Preparing your completed document…",
       renderingDownload: "final",
       retryLabel: "Try the completed download again"
+    });
+  }
+
+  async function prepareNativeWebForm() {
+    if (!view) return;
+    await runAction(async () => {
+      const nextView = await requestJson<SessionView>("/api/web-form/browser/prepare", {
+        method: "POST",
+        body: JSON.stringify({ consent: true, sessionVersion: view.session.version })
+      });
+      setView(nextView);
+      const preparation = nextView.webForm?.preparation;
+      setNotice(preparation?.status === "awaiting_user_submit"
+        ? `${preparation.placedControls.length} provider controls were filled and verified. Nothing has been submitted.`
+        : preparation?.status === "recoverable"
+          ? preparation.message
+          : "The provider form preparation finished.");
+    }, {
+      pendingMessage: "Opening an isolated provider session, filling controls, and checking each value…",
+      retryLabel: "Try preparing the native form again"
+    });
+  }
+
+  async function submitNativeWebForm() {
+    const preparation = view?.webForm?.preparation;
+    if (!view || preparation?.status !== "awaiting_user_submit") return;
+    await runAction(async () => {
+      const nextView = await requestJson<SessionView>("/api/web-form/browser/submit", {
+        method: "POST",
+        body: JSON.stringify({
+          browserSessionId: preparation.browserSessionId,
+          sessionVersion: view.session.version
+        })
+      });
+      setView(nextView);
+      setNotice(nextView.webForm?.preparation.status === "submitted"
+        ? "Your Submit action was sent to the provider. VocaForm cannot repeat it."
+        : nextView.webForm?.preparation.status === "submission_uncertain"
+          ? nextView.webForm.preparation.message
+          : nextView.webForm?.preparation.status === "recoverable"
+            ? nextView.webForm.preparation.message
+            : "The provider session was updated.");
+    }, {
+      pendingMessage: "Performing your one-time Submit action in the isolated provider form…",
+      retryLabel: "Review the provider session state"
+    });
+  }
+
+  async function refreshNativeWebForm() {
+    await runAction(async () => {
+      const nextView = await requestJson<SessionView>("/api/session");
+      setView(nextView);
+      setNotice("The isolated provider review state is current.");
+    }, {
+      pendingMessage: "Refreshing the isolated provider review…",
+      retryLabel: "Try refreshing the provider review again"
     });
   }
 
@@ -481,6 +565,10 @@ export function App() {
     setNotice("Ready when you are.");
   }
 
+  const currentStageLabel = stage === "download" && view?.deliveryPlan.channel === "web_form"
+    ? "Hand-off"
+    : stageLabels[stage];
+
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">Skip to the form</a>
@@ -548,13 +636,16 @@ export function App() {
             </p>
           </section>
         ) : (
-          <h1 className="sr-only">VocaForm: {stageLabels[stage]}</h1>
+          <h1 className="sr-only">VocaForm: {currentStageLabel}</h1>
         )}
 
         <nav className="journey" aria-label="Form steps">
           {(Object.keys(stageLabels) as Stage[]).map((item, index) => {
             const active = stage === item;
             const enabled = item === "upload" || Boolean(view);
+            const label = item === "download" && view?.deliveryPlan.channel === "web_form"
+              ? "Hand-off"
+              : stageLabels[item];
             return (
               <button
                 key={item}
@@ -565,14 +656,14 @@ export function App() {
                 onClick={() => setStage(item)}
               >
                 <span>{index + 1}</span>
-                {stageLabels[item]}
+                {label}
               </button>
             );
           })}
         </nav>
 
         <div className="workspace">
-          <section className="experience-card" aria-label={`${stageLabels[stage]} step`} aria-busy={busy}>
+          <section className="experience-card" aria-label={`${currentStageLabel} step`} aria-busy={busy}>
             {stage === "upload" && (
               <UnderstandStage
                 busy={busy}
@@ -583,6 +674,7 @@ export function App() {
                 onCompile={compileFile}
                 onDiscardCompilation={discardCompilation}
                 onOpenFixture={openFixture}
+                onOpenWebForm={openWebForm}
                 onApplyMemory={applyMemorySuggestion}
                 onStartCompiled={startCompiledForm}
                 onStart={() => setStage("talk")}
@@ -625,8 +717,11 @@ export function App() {
                 view={view}
                 onDraftExport={exportDraft}
                 onFinalExport={exportVerified}
+                onPrepareWebForm={prepareNativeWebForm}
+                onRefreshWebForm={refreshNativeWebForm}
                 onReset={resetSession}
                 onReview={() => setStage("review")}
+                onSubmitWebForm={submitNativeWebForm}
               />
             )}
           </section>
@@ -636,7 +731,7 @@ export function App() {
             {view ? (
               <>
                 <h3 dir="auto" lang={view.session.form.locale}>{view.session.form.title}</h3>
-                <p>{view.session.form.source.fileName}</p>
+                <p>{sourceDisplayName(view.session.form)}</p>
                 <div className="progress-copy">
                   <strong>{view.summary.completionPercent}%</strong>
                   <span>{view.summary.handledFields} of {view.summary.totalFields} complete</span>
@@ -662,9 +757,9 @@ export function App() {
                     </div>
                   )}
                   <div><dt>Sections</dt><dd>{view.session.form.sections.length}</dd></div>
-                  <div><dt>Draft ready</dt><dd>Yes</dd></div>
+                  <div><dt>{view.deliveryPlan.channel === "web_form" ? "Answer list" : "Draft ready"}</dt><dd>Yes</dd></div>
                   <div>
-                    <dt>Final export</dt>
+                    <dt>{view.deliveryPlan.channel === "web_form" ? "Hand-off" : "Final export"}</dt>
                     <dd>{view.verification.readyForFinalExport
                       ? "Ready"
                       : view.verification.issues.some((issue) => issue.severity === "blocker" && !issue.resolved)
@@ -673,13 +768,13 @@ export function App() {
                           ? "Unavailable"
                           : view.verification.semanticStatus === "error" ? "Retry" : "Verify"}</dd>
                   </div>
-                  <div><dt>Output</dt><dd>{exportKindLabel(view.exportPlan.kind)}</dd></div>
+                  <div><dt>Output</dt><dd>{deliveryKindLabel(view.deliveryPlan.kind)}</dd></div>
                 </dl>
               </>
             ) : compilation ? (
               <>
                 <h3 dir="auto" lang={compilation.form?.locale}>{compilation.form?.title || "Uploaded document"}</h3>
-                <p>{compilation.form?.source.fileName || "Document check"}</p>
+                <p>{compilation.form ? sourceDisplayName(compilation.form) : "Document check"}</p>
                 <div className="progress-copy">
                   <strong>{compilation.readiness.score}</strong>
                   <span>readiness score</span>
@@ -757,12 +852,15 @@ interface UnderstandStageProps {
   onCompile: (file: File) => Promise<void>;
   onDiscardCompilation: () => Promise<void>;
   onOpenFixture: (fixtureId: string) => Promise<void>;
+  onOpenWebForm: (url: string, access: WebFormAccess) => Promise<void>;
   onStartCompiled: () => Promise<void>;
   onStart: () => void;
 }
 
 function UnderstandStage(props: UnderstandStageProps) {
   const startButtonRef = useRef<HTMLButtonElement>(null);
+  const [webFormUrl, setWebFormUrl] = useState("");
+  const [webFormAccess, setWebFormAccess] = useState<WebFormAccess>("public");
   const {
     busy,
     compilation,
@@ -772,6 +870,7 @@ function UnderstandStage(props: UnderstandStageProps) {
     onCompile,
     onDiscardCompilation,
     onOpenFixture,
+    onOpenWebForm,
     onApplyMemory,
     onStartCompiled,
     onStart
@@ -794,8 +893,67 @@ function UnderstandStage(props: UnderstandStageProps) {
         <p className="stage-kicker">Upload the form</p>
         <h2 data-stage-heading tabIndex={-1}>Choose the form you want help with.</h2>
         <p className="stage-lead">
-          Upload a PDF, Word document, or text file. VocaForm will find the questions, keep them tied to the source, and prepare a calm conversation.
+          Paste a Google Forms or Microsoft Forms link, or upload a PDF, Word document, or text file. VocaForm will find the questions and prepare a calm conversation.
         </p>
+        <form
+          className="web-form-link"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (webFormUrl.trim()) void onOpenWebForm(webFormUrl.trim(), webFormAccess);
+          }}
+        >
+          <label htmlFor="web-form-url">Web-form responder link</label>
+          <div>
+            <input
+              id="web-form-url"
+              type="url"
+              inputMode="url"
+              autoComplete="url"
+              placeholder="https://docs.google.com/forms/…/viewform"
+              value={webFormUrl}
+              disabled={busy}
+              onChange={(event) => setWebFormUrl(event.target.value)}
+            />
+            <button
+              type="submit"
+              disabled={busy || !webFormUrl.trim()}
+            >
+              Inspect questions <span aria-hidden="true">→</span>
+            </button>
+          </div>
+          <fieldset className="web-form-access">
+            <legend>Form access</legend>
+            <label>
+              <input
+                type="radio"
+                name="web-form-access"
+                value="public"
+                checked={webFormAccess === "public"}
+                disabled={busy}
+                onChange={() => setWebFormAccess("public")}
+              />
+              <span><strong>No sign-in required</strong><small>Inspect anonymously; native preparation may be available.</small></span>
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="web-form-access"
+                value="external"
+                checked={webFormAccess === "external"}
+                disabled={busy}
+                onChange={() => setWebFormAccess("external")}
+              />
+              <span>
+                <strong>Sign-in required</strong>
+                <small>Open Google or Microsoft separately; credentials never enter VocaForm.</small>
+              </span>
+            </label>
+          </fieldset>
+          <p>{webFormAccess === "external"
+            ? "VocaForm reads only question structure visible before sign-in. You will sign in on the provider page and copy reviewed answers yourself."
+            : "Inspection is read-only: VocaForm does not enter answers, sign in, or submit."}</p>
+        </form>
+        <div className="sample-divider"><span>or upload a document</span></div>
         <label
           className={openAiConfigured && !busy ? "upload-button" : "upload-button disabled"}
           htmlFor="form-upload"
@@ -840,8 +998,12 @@ function UnderstandStage(props: UnderstandStageProps) {
     );
   }
 
-  const fields = view.session.form.sections.flatMap((section) => section.fields);
+  const fields = listFormFields(view.session.form);
   const evidenceCount = fields.filter((field) => field.evidence.length > 0).length;
+  const webForm = isWebFormDefinition(view.session.form) ? view.session.form : null;
+  const blockedWebFields = webForm
+    ? fields.filter((field) => "support" in field && field.support.status === "unsupported")
+    : [];
   return (
     <div className="stage-content">
       <p className="stage-kicker">Form understood</p>
@@ -857,10 +1019,43 @@ function UnderstandStage(props: UnderstandStageProps) {
       <div className="confidence-message">
         <span aria-hidden="true">✓</span>
         <div>
-          <strong>Ready for a conversation</strong>
-          <p>You can review every answer before anything is exported.</p>
+          <strong>{webForm ? "Ready for a read-only interview" : "Ready for a conversation"}</strong>
+          <p>{webForm
+            ? "No provider control has been filled and nothing will be submitted by VocaForm."
+            : "You can review every answer before anything is exported."}</p>
         </div>
       </div>
+      {webForm && view.webForm?.access === "external" && (
+        <section className="web-form-limitations" aria-labelledby="external-sign-in-title">
+          <h3 id="external-sign-in-title">Sign in on the provider page</h3>
+          <p>
+            VocaForm never asks for or receives your provider credentials. Open the original form in a separate tab, sign in there, then return here for the interview.
+          </p>
+          <a
+            className="primary-button compact"
+            href={view.webForm.handoffUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Open {webForm.source.provider === "google_forms" ? "Google Forms" : "Microsoft Forms"} sign-in <span aria-hidden="true">↗</span>
+          </a>
+          <p className="button-note">The browser sessions stay separate, so the final hand-off uses a reviewed answer list instead of automatic filling.</p>
+        </section>
+      )}
+      {webForm && (view.webForm?.warnings.length || blockedWebFields.length > 0) ? (
+        <section className="web-form-limitations" aria-labelledby="web-form-limitations-title">
+          <h3 id="web-form-limitations-title">Guided hand-off notes</h3>
+          <ul>
+            {view.webForm?.warnings.map((warning) => <li key={warning}>{warning}</li>)}
+            {blockedWebFields.map((field) => (
+              <li key={field.id}>
+                <strong dir="auto" lang={view.session.form.locale}>{field.label}:</strong>{" "}
+                {"support" in field ? field.support.reason : "Manual handling is required."}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {view.memory.suggestions.length > 0 && (
         <MemorySuggestions
           busy={busy}
@@ -1221,6 +1416,7 @@ function ReviewStage(props: ReviewStageProps) {
   const blockers = view.verification.issues.filter((issue) => issue.severity === "blocker" && !issue.resolved);
   const ready = view.verification.readyForFinalExport;
   const semanticUnavailable = view.verification.semanticStatus === "unavailable";
+  const webForm = view.deliveryPlan.channel === "web_form";
 
   return (
     <div className="stage-content review-stage">
@@ -1228,19 +1424,27 @@ function ReviewStage(props: ReviewStageProps) {
       <h2 data-stage-heading tabIndex={-1}>{answered.length === 0 ? "Your draft is ready to begin." : `${answered.length} answers saved.`}</h2>
       <p className="stage-lead">
         {ready
-          ? "Every blocking finding is resolved and the final verification passed."
+          ? webForm
+            ? "Every blocking finding is resolved and the reviewed answer list is ready."
+            : "Every blocking finding is resolved and the final verification passed."
           : blockers.length > 0
-            ? `${blockers.length} ${blockers.length === 1 ? "finding needs" : "findings need"} attention before final export. You can still download a clearly marked draft.`
+            ? webForm
+              ? `${blockers.length} ${blockers.length === 1 ? "finding needs" : "findings need"} attention. You can still use the guided manual hand-off.`
+              : `${blockers.length} ${blockers.length === 1 ? "finding needs" : "findings need"} attention before final export. You can still download a clearly marked draft.`
             : semanticUnavailable
-              ? "The automatic meaning check is unavailable. A clearly marked draft remains available."
-              : "The deterministic checks passed. Run final verification before exporting the completed document."}
+              ? webForm
+                ? "The automatic meaning check is unavailable. Your reviewed answer list remains available."
+                : "The automatic meaning check is unavailable. A clearly marked draft remains available."
+              : webForm
+                ? "The deterministic checks passed. You can run the same final verification used for document interviews."
+                : "The deterministic checks passed. Run final verification before exporting the completed document."}
       </p>
 
       <div className={ready ? "review-banner ready" : blockers.length ? "review-banner attention" : "review-banner verify"}>
         <span aria-hidden="true">{ready ? "✓" : blockers.length ? "!" : "i"}</span>
         <div>
           <strong>{ready
-            ? "Verified and ready for final export"
+            ? webForm ? "Verified and ready for guided hand-off" : "Verified and ready for final export"
             : blockers.length
               ? "A few things still need you"
               : semanticUnavailable ? "Final verification is unavailable" : "Ready for the final check"}</strong>
@@ -1249,7 +1453,9 @@ function ReviewStage(props: ReviewStageProps) {
             : blockers.length
               ? "Resolve each blocker here without restarting the interview."
               : semanticUnavailable
-                ? "You can continue to Download and save a clearly marked draft."
+                ? webForm
+                  ? "You can continue to Hand-off and use the answer list manually."
+                  : "You can continue to Download and save a clearly marked draft."
                 : "The final check looks for contradictions, ambiguity, and unsupported claims without editing the form."}</p>
         </div>
       </div>
@@ -1321,7 +1527,7 @@ function ReviewStage(props: ReviewStageProps) {
           disabled={busy}
           onClick={onDownload}
         >
-          Continue to download <span aria-hidden="true">→</span>
+          {webForm ? "Continue to hand-off" : "Continue to download"} <span aria-hidden="true">→</span>
         </button>
       </div>
       <button type="button" className="text-button danger" disabled={busy} onClick={() => void onReset()}>Close this form and start over</button>
@@ -1336,12 +1542,18 @@ interface DownloadStageProps {
   view: SessionView;
   onDraftExport: () => Promise<void>;
   onFinalExport: () => Promise<void>;
+  onPrepareWebForm: () => Promise<void>;
+  onRefreshWebForm: () => Promise<void>;
   onReset: () => Promise<void>;
   onReview: () => void;
+  onSubmitWebForm: () => Promise<void>;
 }
 
 function DownloadStage(props: DownloadStageProps) {
   const { busy, complete, rendering, view } = props;
+  if (view.deliveryPlan.channel === "web_form") {
+    return <WebFormHandoffStage {...props} />;
+  }
   const ready = view.verification.readyForFinalExport;
   const unresolvedBlockers = view.verification.issues.filter((issue) =>
     issue.severity === "blocker" && !issue.resolved
@@ -1366,9 +1578,9 @@ function DownloadStage(props: DownloadStageProps) {
             <strong>{rendering === "draft" ? "Creating your draft…" : "Rendering your completed document…"}</strong>
             <p>{rendering === "draft"
               ? "Keep this page open. The DOCX download will start automatically when it is ready."
-              : view.exportPlan.kind === "filled_pdf"
+              : view.deliveryPlan.kind === "filled_pdf"
                 ? "VocaForm is filling a new PDF. Your uploaded original stays unchanged."
-                : view.exportPlan.kind === "filled_docx"
+                : view.deliveryPlan.kind === "filled_docx"
                   ? "VocaForm is filling a new Word document. Your uploaded original stays unchanged."
                   : "VocaForm is building your verified DOCX answer packet."}</p>
           </div>
@@ -1391,14 +1603,14 @@ function DownloadStage(props: DownloadStageProps) {
         <div className="download-option-heading">
           <span aria-hidden="true">{ready ? "✓" : "i"}</span>
           <div>
-            <h3 id="completed-download-title">{exportKindLabel(view.exportPlan.kind)}</h3>
-            <p>{view.exportPlan.description}</p>
+            <h3 id="completed-download-title">{deliveryKindLabel(view.deliveryPlan.kind)}</h3>
+            <p>{view.deliveryPlan.description}</p>
           </div>
         </div>
         <dl>
           <div>
             <dt>Original file</dt>
-            <dd>{view.exportPlan.sourceAvailable ? "Preserved unchanged" : "Referenced by the answer packet"}</dd>
+            <dd>{view.deliveryPlan.sourceAvailable ? "Preserved unchanged" : "Referenced by the answer packet"}</dd>
           </div>
           <div>
             <dt>Final check</dt>
@@ -1428,13 +1640,309 @@ function DownloadStage(props: DownloadStageProps) {
           disabled={busy || !ready}
           onClick={() => void props.onFinalExport()}
         >
-          {rendering === "final" ? "Rendering document…" : view.exportPlan.buttonLabel} <span aria-hidden="true">↓</span>
+          {rendering === "final" ? "Rendering document…" : view.deliveryPlan.buttonLabel} <span aria-hidden="true">↓</span>
         </button>
       </div>
       <button type="button" className="text-button danger" disabled={busy} onClick={() => void props.onReset()}>
         Close this form and start over
       </button>
     </div>
+  );
+}
+
+function WebFormHandoffStage({
+  busy,
+  view,
+  onPrepareWebForm,
+  onRefreshWebForm,
+  onReset,
+  onReview,
+  onSubmitWebForm
+}: Pick<
+  DownloadStageProps,
+  "busy" | "view" | "onPrepareWebForm" | "onRefreshWebForm" | "onReset" | "onReview" | "onSubmitWebForm"
+>) {
+  if (view.deliveryPlan.channel !== "web_form" || !isWebFormDefinition(view.session.form)) return null;
+  if (view.deliveryPlan.mode === "browser_handoff" && view.webForm) {
+    return (
+      <NativeWebFormHandoff
+        key={view.webForm.preparation.status}
+        busy={busy}
+        view={view}
+        onPrepare={onPrepareWebForm}
+        onRefresh={onRefreshWebForm}
+        onReset={onReset}
+        onReview={onReview}
+        onSubmit={onSubmitWebForm}
+      />
+    );
+  }
+  const blocked = new Set(view.deliveryPlan.blockedFieldIds);
+
+  return (
+    <div className="stage-content web-form-handoff">
+      <p className="stage-kicker">Guided web-form hand-off</p>
+      <h2 data-stage-heading tabIndex={-1}>Your reviewed answer list is ready.</h2>
+      <p className="stage-lead">
+        Open the original form and copy the answers below yourself. VocaForm has not filled, transmitted, or submitted any answer to the provider.
+      </p>
+
+      <div className="handoff-boundary" role="note">
+        <span aria-hidden="true">✓</span>
+        <div>
+          <strong>Submission stays with you</strong>
+          <p>Opening the responder page sends no VocaForm answers. Review the native form and use its Submit button only when you choose.</p>
+        </div>
+      </div>
+
+      {view.webForm?.warnings.length ? (
+        <section className="web-form-limitations" aria-labelledby="handoff-notes-title">
+          <h3 id="handoff-notes-title">Before you continue</h3>
+          <ul>{view.webForm.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
+        </section>
+      ) : null}
+
+      <section className="handoff-answer-list" aria-labelledby="handoff-answer-title">
+        <h3 id="handoff-answer-title">Answers to copy</h3>
+        {view.session.form.sections.map((section) => (
+          <div key={section.id} className="handoff-section">
+            <h4 dir="auto" lang={view.session.form.locale}>{section.title}</h4>
+            {section.fields.map((field) => {
+              const answer = view.session.answers[field.id];
+              const manual = blocked.has(field.id);
+              return (
+                <article key={field.id} className={manual ? "handoff-answer manual" : "handoff-answer"}>
+                  <div>
+                    <strong dir="auto" lang={view.session.form.locale}>{field.label}</strong>
+                    <span>{field.required ? "Required" : "Optional"}{manual ? " · manual control" : ""}</span>
+                  </div>
+                  <p dir="auto">
+                    {answer?.status === "answered" && answer.value !== null
+                      ? formatValue(answer.value)
+                      : answer?.status === "skipped" ? "Intentionally skipped" : "Not answered yet"}
+                  </p>
+                  {manual && "support" in field && (
+                    <small>{field.support.reason || "Complete this control directly in the provider form."}</small>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        ))}
+      </section>
+
+      <div className="review-actions handoff-actions">
+        <button type="button" className="quiet-button" disabled={busy} onClick={onReview}>
+          Back to review
+        </button>
+        {view.webForm?.handoffUrl && (
+          <a
+            className="primary-button compact"
+            href={view.webForm.handoffUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {view.deliveryPlan.buttonLabel} <span aria-hidden="true">↗</span>
+          </a>
+        )}
+      </div>
+      <p className="button-note">The original provider page opens in a new tab. VocaForm does not carry answers into it.</p>
+      <button type="button" className="text-button danger" disabled={busy} onClick={() => void onReset()}>
+        Close this form and start over
+      </button>
+    </div>
+  );
+}
+
+interface NativeWebFormHandoffProps {
+  busy: boolean;
+  view: SessionView;
+  onPrepare: () => Promise<void>;
+  onRefresh: () => Promise<void>;
+  onReset: () => Promise<void>;
+  onReview: () => void;
+  onSubmit: () => Promise<void>;
+}
+
+function NativeWebFormHandoff(props: NativeWebFormHandoffProps) {
+  const [consent, setConsent] = useState(false);
+  const preparation = props.view.webForm?.preparation;
+  const providerName = props.view.deliveryPlan.channel === "web_form"
+    && props.view.deliveryPlan.provider === "google_forms" ? "Google Forms" : "Microsoft Forms";
+
+  if (!preparation) return null;
+
+  if (preparation.status === "awaiting_user_submit") {
+    return (
+      <div className="stage-content web-form-handoff native-web-form-review">
+        <p className="stage-kicker">Prepared native form</p>
+        <h2 data-stage-heading tabIndex={-1}>Review the filled provider form.</h2>
+        <p className="stage-lead">
+          VocaForm placed and re-read {preparation.placedControls.length} controls from canonical session version {preparation.canonicalSessionVersion}. No Submit action has occurred.
+        </p>
+
+        <div className="handoff-boundary" role="status">
+          <span aria-hidden="true">✓</span>
+          <div>
+            <strong>Awaiting your Submit action</strong>
+            <p>Network writes remain blocked. The final button below performs one explicit Submit click and cannot be replayed.</p>
+          </div>
+        </div>
+
+        <ProviderReviewImage preparation={preparation} providerName={providerName} />
+
+        <section className="placed-control-list" aria-labelledby="placed-control-title">
+          <h3 id="placed-control-title">Verified provider controls</h3>
+          <p>
+            Bound to source revision <code>{preparation.sourceRevisionFingerprint.slice(0, 12)}</code> and session fingerprint <code>{preparation.canonicalSessionFingerprint.slice(0, 12)}</code>.
+          </p>
+          <ul>
+            {preparation.placedControls.map((control) => (
+              <li key={control.fieldId}>
+                <span aria-hidden="true">✓</span>
+                <div>
+                  <strong dir="auto" lang={props.view.session.form.locale}>{control.fieldLabel}</strong>
+                  <span dir="auto">{Array.isArray(control.normalizedValue)
+                    ? control.normalizedValue.join(", ")
+                    : control.normalizedValue}</span>
+                  <small>Provider control {control.providerFieldId} · verified</small>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p className="button-note">This isolated session expires at {formatLocalTime(preparation.expiresAt)}. Expiry is recoverable and never submits the form.</p>
+        </section>
+
+        <div className="review-actions handoff-actions">
+          <button type="button" className="quiet-button" disabled={props.busy} onClick={props.onReview}>
+            Back to review
+          </button>
+          <button type="button" className="quiet-button" disabled={props.busy} onClick={() => void props.onRefresh()}>
+            Refresh provider view
+          </button>
+          <button type="button" className="primary-button compact submit-provider" disabled={props.busy} onClick={() => void props.onSubmit()}>
+            Submit in {providerName}
+          </button>
+        </div>
+        <p className="button-note">Selecting Submit is the final user-controlled action. VocaForm will not click it automatically or a second time.</p>
+      </div>
+    );
+  }
+
+  if (preparation.status === "submitted" || preparation.status === "submission_uncertain") {
+    const uncertain = preparation.status === "submission_uncertain";
+    return (
+      <div className="stage-content web-form-handoff native-web-form-review">
+        <p className="stage-kicker">{uncertain ? "Provider confirmation needed" : "Provider hand-off complete"}</p>
+        <h2 data-stage-heading tabIndex={-1}>
+          {uncertain ? "Do not submit this form again yet." : "Your Submit action was sent once."}
+        </h2>
+        <p className="stage-lead">
+          {uncertain
+            ? `${preparation.message} Check the provider directly before taking another action.`
+            : `The isolated browser performed your explicit Submit click at ${formatLocalTime(preparation.submittedAt)} and is now closed. VocaForm cannot repeat it.`}
+        </p>
+        <div className="handoff-boundary" role="status">
+          <span aria-hidden="true">✓</span>
+          <div>
+            <strong>{preparation.placedControlCount} verified controls {uncertain ? "were included in the attempt" : "handed off"}</strong>
+            <p>{uncertain
+              ? "The last safe provider view is preserved below. The browser session is closed and the Submit action cannot be replayed."
+              : "The final provider screen is preserved below for review; the browser session itself has been torn down."}</p>
+          </div>
+        </div>
+        <ProviderReviewImage preparation={preparation} providerName={providerName} />
+        <button type="button" className="text-button danger" disabled={props.busy} onClick={() => void props.onReset()}>
+          Close this form and start over
+        </button>
+      </div>
+    );
+  }
+
+  const recoverable = preparation.status === "recoverable" ? preparation : null;
+  return (
+    <div className="stage-content web-form-handoff native-web-form-consent">
+      <p className="stage-kicker">Prepare native web form</p>
+      <h2 data-stage-heading tabIndex={-1}>Choose when answers leave VocaForm.</h2>
+      <p className="stage-lead">
+        With your specific consent, VocaForm will open a temporary isolated {providerName} session, place only the canonical answers shown in Review, and verify every provider control. It will stop before Submit.
+      </p>
+
+      {recoverable && (
+        <div className="preparation-recovery" role="alert">
+          <strong>The provider session needs a fresh start.</strong>
+          <p>{recoverable.message}</p>
+        </div>
+      )}
+
+      <div className="consent-boundary">
+        <label>
+          <input
+            type="checkbox"
+            checked={consent}
+            disabled={props.busy}
+            onChange={(event) => setConsent(event.target.checked)}
+          />
+          <span>
+            I consent to transmit my current reviewed answers into this provider’s controls. I understand VocaForm will not submit the form.
+          </span>
+        </label>
+        <ul>
+          <li>The provider receives only answered, supported controls after you select Prepare.</li>
+          <li>The browser session is isolated, temporary, and has no reusable sign-in state.</li>
+          <li>Any answer change or expiry invalidates the prepared copy.</li>
+        </ul>
+      </div>
+
+      <div className="review-actions handoff-actions">
+        <button type="button" className="quiet-button" disabled={props.busy} onClick={props.onReview}>
+          Back to review
+        </button>
+        <button
+          type="button"
+          className="primary-button compact"
+          disabled={props.busy || !consent}
+          onClick={() => void props.onPrepare()}
+        >
+          {recoverable ? "Prepare a fresh native form" : "Prepare native form"}
+        </button>
+        {props.view.webForm?.handoffUrl && (
+          <a
+            className="quiet-button"
+            href={props.view.webForm.handoffUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Open original form manually <span aria-hidden="true">↗</span>
+          </a>
+        )}
+      </div>
+      <p className="button-note">Opening the original form manually sends none of your VocaForm answers.</p>
+      <button type="button" className="text-button danger" disabled={props.busy} onClick={() => void props.onReset()}>
+        Close this form and start over
+      </button>
+    </div>
+  );
+}
+
+function ProviderReviewImage({
+  preparation,
+  providerName
+}: {
+  preparation: Extract<
+    NonNullable<SessionView["webForm"]>["preparation"],
+    { status: "awaiting_user_submit" | "submitted" | "submission_uncertain" }
+  >;
+  providerName: string;
+}) {
+  return (
+    <figure className="provider-review-frame">
+      <img
+        src={`/api/web-form/browser/screenshot?session=${encodeURIComponent(preparation.browserSessionId)}&version=${preparation.screenshotVersion}`}
+        alt={`Current isolated ${providerName} review. The verified controls are also listed as accessible text below.`}
+      />
+      <figcaption>Visual provider review. Use the verified-control list below for the same information in text.</figcaption>
+    </figure>
   );
 }
 
@@ -1951,12 +2459,13 @@ function verificationStatusLabel(view: SessionView): string {
   } satisfies Record<SessionView["verification"]["semanticStatus"], string>)[view.verification.semanticStatus];
 }
 
-function exportKindLabel(kind: SessionView["exportPlan"]["kind"]): string {
+function deliveryKindLabel(kind: SessionView["deliveryPlan"]["kind"]): string {
   return ({
     filled_docx: "Completed Word document",
     filled_pdf: "Completed fillable PDF",
-    answer_packet: "Section-matched DOCX answer packet"
-  } satisfies Record<SessionView["exportPlan"]["kind"], string>)[kind];
+    answer_packet: "Section-matched DOCX answer packet",
+    native_web_form: "Guided web-form hand-off"
+  } satisfies Record<SessionView["deliveryPlan"]["kind"], string>)[kind];
 }
 
 function semanticCallToAction(view: SessionView, configured: boolean, blockerCount: number): string {
@@ -1970,14 +2479,19 @@ function semanticCallToAction(view: SessionView, configured: boolean, blockerCou
 }
 
 function semanticStatusCopy(view: SessionView, configured: boolean, blockerCount: number): string {
+  const webForm = view.deliveryPlan.channel === "web_form";
   if (view.verification.readyForFinalExport) {
     return "The final check is complete. Your answers were inspected, never rewritten.";
   }
   if (blockerCount > 0) {
-    return "Final verification starts after every deterministic blocker has an explicit answer or correction.";
+    return webForm
+      ? "Unsupported provider controls and incomplete page coverage stay visible in the guided hand-off."
+      : "Final verification starts after every deterministic blocker has an explicit answer or correction.";
   }
   if (!configured || view.verification.semanticStatus === "unavailable") {
-    return "A completed export needs the automatic meaning check. You can still continue to Download and save a clearly marked draft.";
+    return webForm
+      ? "You can still continue to Hand-off and use the reviewed answer list manually."
+      : "A completed export needs the automatic meaning check. You can still continue to Download and save a clearly marked draft.";
   }
   if (view.verification.semanticStatus === "passed") {
     return "No semantic blockers were found. Your answers were inspected, never rewritten.";
@@ -2013,6 +2527,11 @@ function formatAnswer(value: string | null): string {
 function formatValue(value: AnswerValue): string {
   if (Array.isArray(value)) return value.join(", ");
   if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "object") {
+    return Object.entries(value)
+      .map(([row, answer]) => `${row}: ${Array.isArray(answer) ? answer.join(", ") : answer}`)
+      .join("; ");
+  }
   return String(value);
 }
 
@@ -2023,6 +2542,13 @@ function humanizeMemoryKey(key: string): string {
 function formatDate(value: string | null): string {
   if (!value) return "an unknown date";
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(value));
+}
+
+function formatLocalTime(value: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(new Date(value));
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {

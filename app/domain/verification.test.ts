@@ -20,6 +20,7 @@ import {
 } from "./verification";
 import { loadGoldenCompilerFixtures } from "../evals/golden_fixtures";
 import { loadDeterministicVerificationFixtures } from "../evals/verification_fixtures";
+import { listFormFields } from "./form_definition";
 
 const NOW = new Date("2026-07-14T12:00:00.000Z");
 
@@ -59,9 +60,7 @@ describe("final verification domain", () => {
     const base = (await loadGoldenCompilerFixtures())
       .find((fixture) => fixture.id === "activity-permission-conditional")!.form;
     const form = structuredClone(base);
-    const transport = form.sections
-      .flatMap((section) => section.fields)
-      .find((field) => field.id === "transport_home")!;
+    const transport = listFormFields(form).find((field) => field.id === "transport_home")!;
     transport.type = "multi_choice";
     let session = createFormSession(form, NOW);
     session = saveTextAnswer(session, "will_attend", "Yes");

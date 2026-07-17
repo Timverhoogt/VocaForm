@@ -1,4 +1,5 @@
 import { writeZip } from "../../src/docx_package.mjs";
+import { sourceDisplayName } from "../domain/form_definition";
 import { isFieldApplicable } from "../domain/session";
 import type { AnswerRecord, FormSession } from "../domain/schemas";
 
@@ -30,7 +31,7 @@ export function buildAnswerPacketDocx(session: FormSession, options: AnswerPacke
     paragraph(statusLabel(options.status), "PacketKicker"),
     paragraph(options.title, "PacketTitle"),
     paragraph(session.form.title, "PacketSubtitle"),
-    paragraph(`Original document: ${options.sourceFileName ?? session.form.source.fileName}`, "PacketSource"),
+    paragraph(`Original document: ${options.sourceFileName ?? sourceDisplayName(session.form)}`, "PacketSource"),
     noteParagraph(packetExplanation(options)),
     ...profileSection(profileAnswers),
     ...sections.flatMap((section) => [
@@ -116,6 +117,11 @@ function formatAnswer(answer: AnswerRecord | undefined): string {
   }
   if (Array.isArray(answer.value)) return answer.value.join(", ");
   if (typeof answer.value === "boolean") return answer.value ? "Yes" : "No";
+  if (answer.value && typeof answer.value === "object") {
+    return Object.entries(answer.value)
+      .map(([row, value]) => `${row}: ${Array.isArray(value) ? value.join(", ") : value}`)
+      .join("; ");
+  }
   if (answer.value !== null) return String(answer.value);
   return answer.normalizedAnswer ?? answer.rawAnswer ?? "Not answered.";
 }

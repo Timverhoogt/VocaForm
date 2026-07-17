@@ -4,17 +4,18 @@ import { fromLegacyForm } from "../adapters/legacy_form_adapter";
 import { evaluateCompilation, toFormDefinition } from "../domain/compiler";
 import {
   formCompilerOutputSchema,
+  type DocumentFormDefinition,
+  type DocumentFormField,
   type FormCompilerOutput,
-  type FormDefinition,
-  type FormField
 } from "../domain/schemas";
+import { listFormFields } from "../domain/form_definition";
 import type { GoldenAnswerKey } from "./compiler_metrics";
 
 export interface GoldenCompilerFixture {
   id: string;
   format: "pdf" | "docx" | "text";
   sourceText: string | null;
-  form: FormDefinition;
+  form: DocumentFormDefinition;
   answerKey: GoldenAnswerKey;
 }
 
@@ -61,11 +62,11 @@ export async function loadGoldenCompilerFixtures(): Promise<GoldenCompilerFixtur
 }
 
 function answerKeyFor(
-  form: FormDefinition,
+  form: DocumentFormDefinition,
   dependencies: GoldenAnswerKey["dependencies"] = [],
   sourceLabelsById: Record<string, string> = {}
 ): GoldenAnswerKey {
-  const fields = form.sections.flatMap((section) => section.fields);
+  const fields = listFormFields(form);
   return {
     fieldIds: fields.map((field) => field.id),
     fieldLabelsById: Object.fromEntries(
@@ -84,7 +85,7 @@ function compileApprovedFixture(
   format: "pdf" | "text",
   output: FormCompilerOutput,
   sourceText: string
-): FormDefinition {
+): DocumentFormDefinition {
   const parsed = formCompilerOutputSchema.parse(output);
   const readiness = evaluateCompilation(parsed, sourceText);
   if (!readiness.ready) {
@@ -179,15 +180,15 @@ function permissionOutput(): FormCompilerOutput {
 function field(
   id: string,
   label: string,
-  type: FormField["type"],
+  type: DocumentFormField["type"],
   required: boolean,
   interviewPrompt: string,
   evidenceText: string,
   overrides: Partial<Pick<
-    FormField,
+    DocumentFormField,
     "dependencies" | "memoryCandidateReason" | "memoryKey" | "options" | "sensitivity"
   >> = {}
-): FormField {
+): DocumentFormField {
   return {
     id,
     label,
