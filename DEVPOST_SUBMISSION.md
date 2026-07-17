@@ -6,7 +6,7 @@
 
 **Post-submission feature:** The complete web-form workflow (roadmap Goals 1–6A) was published through Devpost's feature-update UI on July 17, 2026: [New: live web-form interviews and consented native hand-off](https://devpost.com/software/vocaform/updates/797250). It was added after the original submission video was finalized. Keep the existing video unchanged; it demonstrates the original document workflow and does not show web-form support.
 
-**Deployment note:** As verified immediately after publishing the update, the public Render URL still serves the original upload-only build. Do not present that URL as web-form evidence until the implementation has been committed, pushed, deployed, and checked signed out.
+**Deployment evidence:** Commit [`7e9ff05`](https://github.com/Timverhoogt/VocaForm/commit/7e9ff05654a7100b0f76d1f7b5e7f293da49c83f) was pushed and promoted live on Render on July 17, 2026. A signed-out check confirmed the public responder-link field, anonymous/sign-in-required access choices, read-only inspection disclosure, and healthy public-demo API. The existing video remains unchanged.
 
 ## Required fields
 

@@ -119,4 +119,4 @@ Render's free web service has an ephemeral filesystem and can spin down after 15
 - [x] Keep the existing 2:08 YouTube video unchanged; it demonstrates only the original document workflow.
 - [x] Publish the feature through Devpost's feature-update UI (`/software/vocaform/updates/797250`).
 - [x] Reopen the public project page signed out and confirm the feature heading, Goals 1–6A scope, Goal 6B exclusion, and unchanged-video note are present.
-- [ ] Commit, push, deploy, and verify the implementation before presenting the existing Render or GitHub links as public evidence for the feature.
+- [x] Commit, push, deploy, and verify the implementation (`7e9ff05`); confirm the signed-out Render page exposes the web-form link and access controls and `/api/health` reports `status: ok`.
