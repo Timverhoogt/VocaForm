@@ -1,94 +1,313 @@
 1
-00:00:00,000 --> 00:00:07,500
-Paperwork is hardest when dense language, typing,
-or repeated details are a barrier.
+00:00:00,000 --> 00:00:01,860
+Nobody enjoys fighting through a dense
 
 2
-00:00:07,500 --> 00:00:15,000
-VocaForm turns an uploaded everyday form into a voice-guided interview
-and returns a verified completed document.
+00:00:01,920 --> 00:00:02,280
+form.
 
 3
-00:00:15,000 --> 00:00:23,000
-Here I upload a synthetic medical PDF. GPT-5.6 Sol reads both text and layout,
-then compiles the unfamiliar form into a strict, evidence-backed schema:
+00:00:02,570 --> 00:00:04,330
+Small fields, repeated questions, and
 
 4
-00:00:23,000 --> 00:00:32,000
-fields, requiredness, dependencies, validation, and exact render targets.
-The readiness gate blocks unsupported questions before any interview begins.
+00:00:04,390 --> 00:00:06,210
+visual clutter turn simple tasks into
 
 5
-00:00:32,000 --> 00:00:40,000
-There is no manual field mapping.
+00:00:06,280 --> 00:00:08,410
+work—and can create real barriers for
 
 6
-00:00:40,000 --> 00:00:49,000
-Now OpenAI Realtime conducts a natural, low-latency conversation.
-It is not GPT-5.6 Sol; it is the voice layer.
+00:00:08,470 --> 00:00:09,860
+blind and low-vision users.
 
 7
-00:00:49,000 --> 00:01:01,000
-As I answer, versioned application tools validate and save grounded values atomically,
-so a duplicate call or interrupted response cannot silently write twice.
+00:00:10,770 --> 00:00:12,650
+VocaForm replaces that friction with one
 
 8
-00:01:01,000 --> 00:01:12,000
-If the connection drops, VocaForm rebuilds context from server-owned state
-and resumes at the first unresolved question.
+00:00:12,690 --> 00:00:13,830
+guided voice conversation.
 
 9
-00:01:12,000 --> 00:01:23,000
-Every answer keeps its source and exact spoken wording,
-and the keyboard path provides the same core journey.
+00:00:14,030 --> 00:00:15,630
+Upload, listen, answer naturally,
 
 10
-00:01:23,000 --> 00:01:35,000
-I kept consent, memory, validation, application state, and rendering authoritative in code;
-the models cannot silently save memory or change an answer.
+00:00:15,740 --> 00:00:17,860
+review, and download—with screen-reader
 
 11
-00:01:35,000 --> 00:01:44,000
-Review begins with deterministic checks for missing, invalid,
-or dependency-sensitive answers.
+00:00:17,890 --> 00:00:19,530
+structure, keyboard control, high
 
 12
-00:01:44,000 --> 00:01:53,000
-GPT-5.6 Sol then performs a separate non-mutating semantic verification
-for contradictions, ambiguity, or unsupported normalization.
+00:00:19,570 --> 00:00:21,310
+contrast, and 200% text
 
 13
-00:01:53,000 --> 00:02:00,000
-It can flag an issue, but it cannot edit the form.
-Final export is tied to this exact session version.
+00:00:21,340 --> 00:00:22,060
+reflow built in.
 
 14
-00:02:00,000 --> 00:02:05,000
-VocaForm fills a copied AcroForm PDF, reports one hundred percent placement coverage,
-and confirms that the uploaded source was not changed.
+00:00:22,170 --> 00:00:24,100
+VocaForm can start from either an
 
 15
-00:02:05,000 --> 00:02:13,000
-On a second form, the Memory Vault suggests only three contact facts
-I explicitly approved. Nothing is applied until I confirm each value.
+00:00:24,170 --> 00:00:26,130
+uploaded document or a public Google or
 
 16
-00:02:13,000 --> 00:02:25,000
-The medical answers never entered memory, and I can correct or forget a claim
-without silently changing an existing form.
+00:00:26,170 --> 00:00:27,380
+Microsoft responder link.
 
 17
-00:02:25,000 --> 00:02:34,000
-I used Codex with GPT-5.6 to rebuild the prototype as a modular TypeScript application,
-preserve the proven document logic through adapters,
+00:00:27,780 --> 00:00:29,970
+Here I choose a synthetic medical intake
 
 18
-00:02:34,000 --> 00:02:42,000
-and create the accessibility, evaluation, and resilience gates.
-Human decisions defined privacy, consent, model roles, and scope.
-The live compiler replay found all fifty-three expected fields with zero fabrication.
+00:00:29,995 --> 00:00:30,585
+PDF.
 
 19
-00:02:42,000 --> 00:02:50,000
-VocaForm: upload, talk, review, download.
-One form, one conversation, done—paperwork made human.
+00:00:31,115 --> 00:00:33,065
+GPT-5.6 Sol
+
+20
+00:00:33,135 --> 00:00:34,345
+identifies every question and
+
+21
+00:00:34,395 --> 00:00:36,265
+requirement, while evidence checks block
+
+22
+00:00:36,325 --> 00:00:38,055
+unsupported fields before the interview
+
+23
+00:00:38,095 --> 00:00:38,485
+begins.
+
+24
+00:00:40,440 --> 00:00:42,810
+Now OpenAI Realtime guides the same
+
+25
+00:00:42,860 --> 00:00:44,250
+medical interview by voice.
+
+26
+00:00:44,280 --> 00:00:45,700
+VocaForm: What brings you in today?
+
+27
+00:00:46,340 --> 00:00:49,400
+VocaForm: Just a brief description of
+your main reason for the visit.
+
+28
+00:00:50,220 --> 00:00:50,880
+User: Recurring headaches.
+
+29
+00:00:51,180 --> 00:00:54,040
+VocaForm: Thanks. Let me record that,
+and then we'll keep going.
+
+30
+00:00:54,740 --> 00:00:54,960
+VocaForm: Saved.
+
+31
+00:00:55,490 --> 00:00:57,020
+Every write passes through versioned
+
+32
+00:00:57,070 --> 00:00:57,920
+application tools.
+
+33
+00:00:58,210 --> 00:01:00,110
+Code—not the model—decides what is
+
+34
+00:01:00,130 --> 00:01:01,970
+stored, and the keyboard path remains
+
+35
+00:01:02,030 --> 00:01:02,310
+equal.
+
+36
+00:01:03,710 --> 00:01:06,040
+Before export, VocaForm catches one
+
+37
+00:01:06,090 --> 00:01:07,190
+missing required answer.
+
+38
+00:01:07,310 --> 00:01:09,400
+I correct it inline, then GPT-5.6 Sol
+
+39
+00:01:09,450 --> 00:01:11,300
+runs a separate, non-mutating
+
+40
+00:01:11,380 --> 00:01:12,930
+semantic review.
+
+41
+00:01:13,450 --> 00:01:15,540
+It can flag ambiguity or contradiction,
+
+42
+00:01:15,600 --> 00:01:17,460
+but cannot rewrite the user's answers.
+
+43
+00:01:18,090 --> 00:01:20,170
+The result: eight of eight fields placed
+
+44
+00:01:20,210 --> 00:01:21,910
+in a copied PDF, with the source
+
+45
+00:01:21,970 --> 00:01:22,540
+unchanged.
+
+46
+00:01:24,980 --> 00:01:26,520
+Now the second form reveals the other
+
+47
+00:01:26,590 --> 00:01:27,310
+aha moment.
+
+48
+00:01:27,910 --> 00:01:29,750
+The Memory Vault suggests only three
+
+49
+00:01:29,810 --> 00:01:31,900
+contact details I explicitly approved.
+
+50
+00:01:32,270 --> 00:01:34,080
+Nothing is reused until I confirm it.
+
+51
+00:01:34,550 --> 00:01:36,720
+Medical answers are excluded, and every
+
+52
+00:01:36,800 --> 00:01:38,590
+remembered item can be corrected or
+
+53
+00:01:38,640 --> 00:01:39,070
+forgotten.
+
+54
+00:01:40,830 --> 00:01:42,990
+Public Google and Microsoft Forms use
+
+55
+00:01:43,020 --> 00:01:44,880
+the same trusted journey: read-only
+
+56
+00:01:44,930 --> 00:01:47,260
+inspection, voice or text interview, and
+
+57
+00:01:47,340 --> 00:01:49,220
+fresh consent before supported answers
+
+58
+00:01:49,290 --> 00:01:51,220
+are prepared in an isolated provider
+
+59
+00:01:51,270 --> 00:01:51,630
+page.
+
+60
+00:01:52,170 --> 00:01:54,250
+VocaForm verifies every control again,
+
+61
+00:01:54,440 --> 00:01:55,890
+then stops before Submit.
+
+62
+00:01:56,220 --> 00:01:57,930
+The final click stays with the user.
+
+63
+00:01:58,250 --> 00:02:00,240
+Codex became my build partner.
+
+64
+00:02:00,460 --> 00:02:02,860
+I used it to research APIs, rebuild my
+
+65
+00:02:02,910 --> 00:02:04,520
+prototype in modular TypeScript, and
+
+66
+00:02:04,570 --> 00:02:06,050
+test browser and accessibility
+
+67
+00:02:06,100 --> 00:02:08,100
+flows—even continuing remotely from my
+
+68
+00:02:08,150 --> 00:02:08,500
+phone.
+
+69
+00:02:08,810 --> 00:02:11,450
+Inside VocaForm, I used GPT-5.6 Sol
+
+70
+00:02:11,490 --> 00:02:13,550
+to compile unfamiliar forms
+
+71
+00:02:13,600 --> 00:02:15,320
+and run a separate semantic
+
+72
+00:02:15,360 --> 00:02:15,630
+review.
+
+73
+00:02:15,840 --> 00:02:17,390
+Together, they gave me speed without
+
+74
+00:02:17,440 --> 00:02:18,450
+giving up human control.
+
+75
+00:02:18,623 --> 00:02:19,177
+VocaForm.
+
+76
+00:02:19,624 --> 00:02:20,107
+One form.
+
+77
+00:02:20,532 --> 00:02:21,297
+One conversation.
+
+78
+00:02:21,743 --> 00:02:21,938
+Done.

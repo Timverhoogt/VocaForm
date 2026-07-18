@@ -10,19 +10,19 @@ Google Forms and Microsoft Forms are the first provider targets. Literal Google 
 
 ## Devpost submission positioning
 
-The complete web-form workflow in Goals 1–6A is an additive **new feature** for the Devpost submission. It was completed after the original submission video and its supporting assets were frozen, and it extends the submitted product without reopening the recorded demo narrative.
+The complete web-form workflow in Goals 1–6A is an additive **new feature** for the Devpost submission. It was completed after the original submission video and first published through Devpost's feature-update UI. A corrected final demo was subsequently produced to present the original document journey and the new web-form workflow as one coherent product.
 
 Published submission treatment:
 
-- keep the existing submission video, narration, captions, demo script, and previously reviewed core-flow assets unchanged;
+- use the [final 2:27 demo](https://youtu.be/Dh-6t_kKioM), which covers both the original document journey and Goals 1–6A and explicitly explains how Codex and GPT-5.6 were used;
 - publish one clearly labelled [“New feature: live web-form interviews and consented native hand-off”](https://devpost.com/software/vocaform/updates/797250) update covering Goals 1–6A through Devpost's feature-update UI;
-- describe the entire web-form workflow as an extension beyond the flow shown in the video, so judges are not led to believe the recording demonstrates link inspection, web-form interviews, or native provider preparation;
+- describe the web-form workflow consistently across the video, feature update, repository, and deployed demo without implying that VocaForm performs the user's final provider submission;
 - link the written claim to the deployed experience, this roadmap, the repository implementation, the supported-control matrix, and the deterministic web-form evaluation evidence;
 - state the supported boundary precisely: public responder links can enter the interview, while native preparation is limited to complete single-page Google or Microsoft forms with deterministic ordinary controls; all other cases retain the guided manual hand-off;
 - state that sign-in-required forms keep authentication entirely on the provider page and use the reviewed manual hand-off;
-- do not re-record or re-edit the submission video for this feature. Reopen video work only if an unrelated submission requirement makes the existing recording invalid.
+- keep the corrected video under three minutes and preserve the reviewed captions, synthetic fixtures, privacy boundary, and final user-controlled Submit action.
 
-This keeps the original submission story stable while giving the completed Goals 1–6A release one distinct, verifiable new-feature callout. Goal 6B remains a long-term option and is not part of the feature claim.
+This preserves the original submission history while giving the completed Goals 1–6A release one distinct, verifiable new-feature callout and an updated end-to-end demonstration. Goal 6B remains a long-term option and is not part of the feature claim.
 
 ## Goal 1: Read-only provider inspection spike
 

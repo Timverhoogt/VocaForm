@@ -358,7 +358,7 @@ Genuine engineering effort and confidence that the application is real.
   - architecture, Codex, and close: 10 seconds.
 - Save the required `/feedback` Codex Session ID.
 - Complete the Devpost project description and required submission fields.
-- Present Web Forms Goal 4 as a clearly labelled additive Devpost **new feature** completed after the core video was frozen. Keep the existing video, narration, captions, and demo script unchanged; explain that the recording covers the core journey and link the Goal 4 claim to its deployed flow and deterministic evaluation evidence.
+- Present the complete Web Forms Goals 1–6A workflow as a clearly labelled additive Devpost **new feature** completed after the original video was finalized. Link the feature claim to its deployed flow and deterministic evaluation evidence, and use the final 2:27 demo to show the document and web-form journeys together while explicitly explaining how Codex and GPT-5.6 were used.
 - Submit by the internal deadline, then use the remaining buffer only for verification or a safe resubmission.
 
 ### Acceptance criteria
@@ -367,7 +367,7 @@ Genuine engineering effort and confidence that the application is real.
 - The repository is licensed, documented, and runnable from a clean clone.
 - The demo link works without private credentials from the judge.
 - The Devpost submission is complete by July 21 at 20:00 CEST.
-- The Devpost copy distinguishes the recorded core journey from the later Goal 4 feature and does not imply that native provider filling appears in the unchanged submission video.
+- The Devpost copy and corrected demo preserve the provider hand-off boundary: supported answers may be prepared and verified, but VocaForm stops before Submit and the final click stays with the user.
 
 ### Judge signal
 

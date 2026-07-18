@@ -87,13 +87,16 @@ Render's free web service has an ephemeral filesystem and can spin down after 15
 
 - [ ] Capture only reviewed synthetic fixtures at 16:9 and 1080p.
 - [ ] Keep secrets, personal tabs, notifications, account pages, and terminal history out of frame.
-- [ ] Follow `demo/DEMO_SCRIPT.md`; narration explicitly says VocaForm, GPT-5.6 Sol, Realtime, Codex, and the human decision boundary.
+- [x] Follow `demo/HEYGEN_SCRIPT.md`; narration explicitly says VocaForm, GPT-5.6 Sol, Realtime, Codex, and the human decision boundary.
 - [ ] Open the completed PDF briefly and legibly.
-- [x] Render below 2:55 and verify the final YouTube duration is below 3:00 (final: 2:08).
-- [ ] Upload `demo/vocaform-demo.en.srt`, proofread it against the final edit, and correct timing drift.
-- [x] Publish on YouTube as **Public**; the uploaded 1080p source is available at the final URL.
-- [x] Verify the URL resolves publicly without an account-level access block.
-- [x] Public YouTube URL: `https://youtu.be/xJNu3Z-nwEM`.
+- [x] Render below 2:55 and verify the final master is below 3:00 (final: 2:27).
+- [x] Generate and proofread `demo/vocaform-demo.en.srt` against the final edit; confirm all 78 cues are ordered and within the 2:27 runtime.
+- [x] Upload `work/video/iterations/v6-submission-final/vocaform-submission-final-demo.mp4` as the final 2:27 review cut.
+- [x] Upload `demo/vocaform-demo.en.srt`, verify 1080p processing, and change the final upload to **Public**.
+- [ ] Confirm YouTube Studio reports no copyright restriction.
+- [x] Record the final YouTube URL in the repository submission documents: `https://youtu.be/Dh-6t_kKioM`.
+- [x] Replace the YouTube URL in Devpost and verify the published project references `https://youtu.be/Dh-6t_kKioM`.
+- [x] Confirm the final video is public and playable without an authenticated YouTube session.
 
 ## Devpost
 
@@ -109,14 +112,17 @@ Render's free web service has an ephemeral filesystem and can spin down after 15
 - [ ] Preview the final project page on desktop and mobile.
 - [x] Submit by July 21 at 20:00 CEST (submitted July 16 at 18:27 CEST; submission ID `1092030`).
 - [x] Reopen the submitted project and confirm the OpenAI Build Week relationship and submitted timestamp persisted.
+- [x] Verify through Devpost on July 18 that project `1332705` is published, remains submitted to OpenAI Build Week, and references the final video URL.
 - [x] Save a screenshot of the submission receipt (`Screenshot 2026-07-16 at 20.36.42.png`).
 
 ### Post-submission web-form feature
 
 - [x] Frame the complete web-form workflow (roadmap Goals 1–6A), rather than Goal 6A alone, as one new Devpost feature.
 - [x] Prepare the final feature title, copy, claim boundary, and evidence links in `DEVPOST_SUBMISSION.md`.
-- [x] State in the README, roadmap, submission copy, and video plan that this feature was built after the original video was finalized.
-- [x] Keep the existing 2:08 YouTube video unchanged; it demonstrates only the original document workflow.
+- [x] Preserve the release history that the web-form feature was built after the original video was finalized.
+- [x] Produce a final 2:27 demo covering the original document journey, Goals 1–6A, and explicit voiceover explaining how Codex and GPT-5.6 were used.
+- [x] Upload the final 2:27 demo and replace the Devpost video field with its new URL.
+- [x] Make the final YouTube upload public.
 - [x] Publish the feature through Devpost's feature-update UI (`/software/vocaform/updates/797250`).
-- [x] Reopen the public project page signed out and confirm the feature heading, Goals 1–6A scope, Goal 6B exclusion, and unchanged-video note are present.
+- [x] Reopen the public project and feature pages signed out and confirm the updated video, feature heading, Goals 1–6A scope, and Goal 6B exclusion are present.
 - [x] Commit, push, deploy, and verify the implementation (`7e9ff05`); confirm the signed-out Render page exposes the web-form link and access controls and `/api/health` reports `status: ok`.

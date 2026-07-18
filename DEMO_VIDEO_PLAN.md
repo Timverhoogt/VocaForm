@@ -1,12 +1,13 @@
 # VocaForm HeyGen and YouTube Demo Plan
 
 **Prepared:** July 15, 2026<br>
-**Target:** 2:45–2:50, landscape 16:9, 1080p, public on YouTube<br>
+**Final master:** 2:27, landscape 16:9, 1080p; local upload package: `work/video/iterations/v6-submission-final/vocaform-submission-final-demo.mp4`<br>
+**Final YouTube upload:** [youtu.be/Dh-6t_kKioM](https://youtu.be/Dh-6t_kKioM)<br>
 **Hard submission constraint:** under three minutes, showing the working project with narration explaining VocaForm, Codex, and GPT-5.6
 
-**Post-video feature freeze:** The complete web-form workflow in roadmap Goals 1–6A is a new feature built after this video was finalized. Do not re-record, re-edit, or replace the existing 2:08 submission video for that feature. The video remains evidence of the original document workflow and intentionally does not show web-form support; Devpost's **Add feature** entry carries the new release.
+**Final revision:** The complete web-form workflow in roadmap Goals 1–6A was built after the original submission video and first published through Devpost's **Add feature** entry. The corrected final demo now covers the document journey and the public Google and Microsoft Forms workflow together. Goal 6B remains long term and is not represented.
 
-The exact narration and pickup list are in [`demo/DEMO_SCRIPT.md`](./demo/DEMO_SCRIPT.md). Upload [`demo/vocaform-demo.en.srt`](./demo/vocaform-demo.en.srt) as the initial YouTube caption track and retime it against the final edit.
+The final narration and scene plan are in [`demo/HEYGEN_SCRIPT.md`](./demo/HEYGEN_SCRIPT.md). Upload the reviewed [`vocaform-demo.en.srt`](./demo/vocaform-demo.en.srt) as the YouTube caption track.
 
 ## Recommended HeyGen workflow
 
@@ -37,9 +38,9 @@ Video Agent can generate a landscape video up to three minutes from a full scrip
 
 HeyGen is an external cloud service. Upload only synthetic screen recordings, scripts, images, and audio that are safe to share with that service.
 
-## Timed shot and narration plan
+## Pre-production timing budget
 
-Aim for roughly 360–390 spoken words. Do not target exactly 3:00; YouTube and export timing need margin.
+This table records the original timing budget, not the final chapter markers. The final 2:27 scene timings and narration are recorded in [`demo/HEYGEN_SCRIPT.md`](./demo/HEYGEN_SCRIPT.md). Do not target exactly 3:00; YouTube and export timing need margin.
 
 | Time | Visual | Narration must establish |
 | --- | --- | --- |
@@ -78,11 +79,13 @@ Do not imply that Realtime is GPT-5.6 Sol. Realtime conducts the low-latency con
 
 **Title**
 
-> VocaForm — Voice-first, verified paperwork | OpenAI Build Week
+> VocaForm — Accessible Forms by Voice | Final Build Week Demo
 
 **Description draft**
 
-> VocaForm turns an uploaded everyday form into a calm voice conversation and returns a verified completed document. GPT-5.6 Sol compiles unfamiliar forms and checks the final answers; Realtime conducts the conversation; application-owned tools keep answers, consent, memory, and rendering deterministic.
+> VocaForm turns uploaded documents and public web forms into a calm, accessible voice conversation. It returns a reviewed completed document or prepares a supported Google or Microsoft Form for the user's final submission.
+>
+> GPT-5.6 Sol compiles unfamiliar forms and performs a separate, non-mutating semantic review. OpenAI Realtime conducts the voice interview. Deterministic application code owns answers, validation, consent, memory, rendering, and the final submission boundary.
 >
 > Built with Codex and GPT-5.6 for OpenAI Build Week — Apps for Your Life.
 >
@@ -93,25 +96,30 @@ Do not imply that Realtime is GPT-5.6 Sol. Realtime conducts the low-latency con
 
 ```text
 0:00 Why VocaForm
-0:15 GPT-5.6 form understanding
-0:40 Voice interview
-1:35 Verification and completed PDF
-2:05 Safe memory reuse
-2:25 Built with Codex
+0:22 Documents and public responder links
+0:40 Realtime voice demonstration
+1:03 Verification and completed PDF
+1:24 Safe Memory Vault reuse
+1:40 Google and Microsoft Forms
+1:58 How I used Codex and GPT-5.6
 ```
 
 ## Final YouTube and Devpost checklist
 
-- [ ] Final runtime is below 2:55 and definitely below 3:00 after YouTube processing.
-- [ ] Visibility is **Public**, not Private or Unlisted.
-- [ ] 1080p processing has completed before copying the URL into Devpost.
-- [ ] The video visibly shows the real application working.
-- [ ] Spoken narration explicitly covers VocaForm, Codex, and GPT-5.6.
-- [ ] Captions are proofread; an SRT is uploaded to YouTube for toggleable captions.
-- [ ] No keys, private identifiers, real family/medical data, or private browser UI appear.
-- [ ] The downloaded DOCX/PDF is opened briefly and is legible.
-- [ ] The repository link is correct and public, or private access has been granted as required.
+- [x] Final runtime is below 2:55 and definitely below 3:00 before YouTube processing (2:27).
+- [x] Upload the 2:27 final master for final review.
+- [x] Visibility is **Public** after the final unlisted review (verified signed out on July 18, 2026).
+- [x] 1080p processing has completed.
+- [x] The video visibly shows the real application working.
+- [x] Spoken narration explicitly covers VocaForm, how Codex was used, and how GPT-5.6 was used.
+- [x] Captions are proofread and the final English SRT is available on YouTube as a toggleable caption track.
+- [x] No keys, private identifiers, real family/medical data, or private browser UI appear.
+- [x] The completed PDF is opened briefly and is legible.
+- [x] The repository link is correct and publicly accessible.
 - [ ] The description contains no placeholders.
 - [ ] YouTube reports no blocking Content ID or copyright issue.
-- [ ] The public URL works in a signed-out/incognito browser.
-- [ ] The same final URL is saved in the Devpost project before submission.
+- [x] The public URL works without an authenticated YouTube session.
+- [x] The final URL is recorded in the repository submission documents.
+- [x] The same final URL is saved in the published Devpost project (verified through Devpost on July 18, 2026).
+
+Final URL: https://youtu.be/Dh-6t_kKioM
