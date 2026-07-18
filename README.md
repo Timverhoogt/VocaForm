@@ -31,7 +31,7 @@ The result is one coherent **Upload → Talk → Review → Download** product j
 
 ### New post-submission feature: public web-form interview and native hand-off
 
-The complete web-form workflow in Goals 1–6A is a [new Devpost feature](https://devpost.com/software/vocaform/updates/797250) built after the original submission video was finalized. The video remains unchanged: it demonstrates the original document workflow and does not show web-form support.
+The complete web-form workflow in Goals 1–6A was first published as a [new Devpost feature](https://devpost.com/software/vocaform/updates/797250) after the original submission video was finalized. The [final 2:27 demo](https://youtu.be/Dh-6t_kKioM) now shows the document journey and the public Google and Microsoft Forms workflow together, and explicitly explains how Codex and GPT-5.6 were used. Goal 6B remains long term and is not part of this release.
 
 Paste a public anonymous Google Forms or Microsoft Forms responder link on the choose-form screen and VocaForm inspects the rendered responder page without entering answers or submitting. The deterministic inspection is compiled into the same provider-independent, versioned session used by documents, so voice, text, explicit Memory Vault consent, and verification follow the existing trust boundaries.
 
