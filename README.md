@@ -6,7 +6,7 @@ VocaForm turns everyday paperwork into a calm, accessible conversation. Upload a
 
 **Built for [OpenAI Build Week](https://openai.devpost.com/) · Apps for Your Life**
 
-[Build Week roadmap](./BUILD_WEEK_ROADMAP.md) · [Web forms roadmap](./WEB_FORMS_ROADMAP.md) · [Supported web controls](./WEB_FORM_SUPPORTED_CONTROLS.md) · [Submission evidence](./SUBMISSION_EVIDENCE.md) · [Resilience report](./RESILIENCE_REPORT.md) · [Three-minute demo plan](./DEMO_VIDEO_PLAN.md)
+[Build Week roadmap](./BUILD_WEEK_ROADMAP.md) · [Web forms roadmap](./WEB_FORMS_ROADMAP.md) · [Information request lifecycle roadmap](./INFORMATION_REQUEST_ROADMAP.md) · [Supported web controls](./WEB_FORM_SUPPORTED_CONTROLS.md) · [Submission evidence](./SUBMISSION_EVIDENCE.md) · [Resilience report](./RESILIENCE_REPORT.md) · [Three-minute demo plan](./DEMO_VIDEO_PLAN.md)
 
 <p align="center">
   <img src="./app/e2e/memory_flow.visual.spec.ts-snapshots/landing-desktop-chromium-darwin.png" alt="VocaForm's accessible upload screen, with reviewed sample forms and the Upload, Talk, Review, Download journey" width="900">
@@ -295,6 +295,7 @@ This Build Week local store is not encrypted, and VocaForm is not represented as
 ## Project documentation
 
 - [BUILD_WEEK_ROADMAP.md](./BUILD_WEEK_ROADMAP.md) — architecture decisions, scope cuts, acceptance criteria, and submission plan
+- [INFORMATION_REQUEST_ROADMAP.md](./INFORMATION_REQUEST_ROADMAP.md) — post–Build Week requester authoring, invitations, multimodal responses, governance, and pilot goals
 - [WEB_FORM_SUPPORTED_CONTROLS.md](./WEB_FORM_SUPPORTED_CONTROLS.md) — deterministic Google/Microsoft control support, native-preparation confidence gates, and live-check operation
 - [SUBMISSION_EVIDENCE.md](./SUBMISSION_EVIDENCE.md) — live Sol replay and deterministic release evidence
 - [SUBMISSION_CHECKLIST.md](./SUBMISSION_CHECKLIST.md) — deployment, video, signed-out QA, and Devpost handoff

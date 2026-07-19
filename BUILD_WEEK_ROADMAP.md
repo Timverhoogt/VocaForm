@@ -412,6 +412,7 @@ All four criteria are easy to recognize without requiring judges to infer the pr
 - Legal claims of medical compliance or production handling of real patient data.
 - Pixel-perfect overlays for every non-fillable scanned PDF.
 - Organization-specific form libraries and admin dashboards.
+- Requester-side authoring, invitations, response collection, and lifecycle management; these are sequenced in `INFORMATION_REQUEST_ROADMAP.md`.
 - Multi-agent, Programmatic Tool Calling, or Pro mode without evaluation evidence.
 - Native mobile applications.
 
